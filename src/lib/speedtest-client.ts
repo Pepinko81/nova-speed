@@ -39,10 +39,10 @@ export class SpeedTestClient {
       // In browser, use same protocol as current page but for WebSocket
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const host = window.location.hostname;
-      const port = import.meta.env.VITE_WS_PORT || (host.includes('speedflux.hashmatrix.dev') ? '' : ':8080');
+      const port = import.meta.env.VITE_WS_PORT || (host.includes('speedflux.hashmatrix.dev') ? '' : ':3001');
       this.wsBaseUrl = `${protocol}//${host}${port}`;
     } else {
-      this.wsBaseUrl = 'ws://localhost:8080';
+      this.wsBaseUrl = 'ws://localhost:3001';
     }
   }
 
@@ -201,10 +201,21 @@ export class SpeedTestClient {
       let animationFrameId: number | null = null;
       let lastUpdateTime = 0;
 
+      // Throttle sending to prevent overwhelming the connection
+      // Calculate target send rate based on reasonable max speed
+      const targetMbps = Math.min(maxSpeed, 1000); // Cap at 1 Gbps for localhost detection
+      const targetBytesPerSecond = (targetMbps * 1_000_000) / 8;
+      const minInterval = Math.max(16, (chunkSize / targetBytesPerSecond) * 1000); // At least 16ms (60fps)
+      
+      let lastSendTime = 0;
+
       const sendChunk = () => {
         if (!startTime) return;
 
-        if (performance.now() - startTime >= testDuration) {
+        const now = performance.now();
+        const elapsed = now - startTime;
+
+        if (elapsed >= testDuration) {
           // Send complete message
           ws.send(JSON.stringify({ type: 'complete' }));
           if (animationFrameId !== null) {
@@ -213,19 +224,48 @@ export class SpeedTestClient {
           return;
         }
 
-        // Generate random binary data
-        const buffer = new Uint8Array(chunkSize);
-        crypto.getRandomValues(buffer);
+        // Throttle sending to prevent too fast uploads (especially on localhost)
+        if (now - lastSendTime < minInterval) {
+          animationFrameId = requestAnimationFrame(sendChunk);
+          return;
+        }
 
-        // Send binary data
-        ws.send(buffer);
-        bytesSent += chunkSize;
+        // Check if WebSocket is ready
+        if (ws.readyState !== WebSocket.OPEN) {
+          return;
+        }
+
+        // Generate random binary data
+        // crypto.getRandomValues has a limit of 65536 bytes, so we need to chunk it
+        const buffer = new Uint8Array(chunkSize);
+        const maxChunk = 65536; // Maximum bytes per getRandomValues call
+        
+        if (chunkSize <= maxChunk) {
+          crypto.getRandomValues(buffer);
+        } else {
+          // Fill in chunks of maxChunk size
+          for (let offset = 0; offset < chunkSize; offset += maxChunk) {
+            const chunk = buffer.subarray(offset, Math.min(offset + maxChunk, chunkSize));
+            crypto.getRandomValues(chunk);
+          }
+        }
+
+        // Send binary data (with buffering check)
+        try {
+          if (ws.bufferedAmount < 10 * 1024 * 1024) { // Don't buffer more than 10MB
+            ws.send(buffer);
+            bytesSent += chunkSize;
+            lastSendTime = now;
+          }
+        } catch (error) {
+          console.error('Error sending chunk:', error);
+          return;
+        }
 
         // Update progress every 100ms
-        const now = performance.now();
         if (now - lastUpdateTime >= 100) {
-          const elapsed = (now - startTime) / 1000;
-          const mbps = (bytesSent * 8) / (elapsed * 1_000_000);
+          const elapsedSeconds = elapsed / 1000;
+          const mbps = (bytesSent * 8) / (elapsedSeconds * 1_000_000);
 
           if (onProgress) {
             onProgress({

@@ -149,7 +149,22 @@ func (s *DownloadService) RunTest(c *websocket.Conn, initialChunkSize int) *mode
 	wg.Wait()
 
 	duration := time.Since(startTime).Seconds()
+	
+	// Ensure minimum duration for accurate measurement
+	if duration < 0.1 {
+		duration = 0.1
+	}
+	
 	finalThroughput := utils.CalculateThroughput(atomic.LoadInt64(&totalBytes), duration)
+	
+	// Validate throughput - cap unrealistic values (likely localhost loopback)
+	if finalThroughput > 10000 {
+		s.logger.Warn("Unrealistic throughput detected, likely localhost loopback",
+			zap.Float64("throughput", finalThroughput),
+			zap.Int64("bytes", atomic.LoadInt64(&totalBytes)),
+			zap.Float64("duration", duration))
+		finalThroughput = 10000
+	}
 
 	s.logger.Info("Download test completed",
 		zap.Float64("throughput", finalThroughput),

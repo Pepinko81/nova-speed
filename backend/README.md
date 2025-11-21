@@ -68,7 +68,7 @@ backend/
    go run main.go
    ```
 
-   The server will start on port `8080` by default.
+   The server will start on port `3001` by default (to avoid conflicts with web servers on 8080).
 
 ### Docker Deployment
 
@@ -120,7 +120,7 @@ All speed tests use WebSocket connections for real-time communication.
 
 #### 1. Ping/Latency Test
 
-**Endpoint:** `ws://localhost:8080/ws/ping`
+**Endpoint:** `ws://localhost:3001/ws/ping`
 
 Measures latency and jitter by sending ping packets and measuring round-trip time.
 
@@ -160,7 +160,7 @@ ws.onerror = (error) => {
 
 #### 2. Download Test
 
-**Endpoint:** `ws://localhost:8080/ws/download`
+**Endpoint:** `ws://localhost:3001/ws/download`
 
 Measures download throughput by streaming randomized binary data.
 
@@ -214,7 +214,7 @@ ws.onerror = (error) => {
 
 #### 3. Upload Test
 
-**Endpoint:** `ws://localhost:8080/ws/upload`
+**Endpoint:** `ws://localhost:3001/ws/upload`
 
 Measures upload throughput by receiving binary data from the client.
 

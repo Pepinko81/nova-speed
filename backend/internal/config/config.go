@@ -16,7 +16,7 @@ type Config struct {
 func Load() *Config {
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "3001" // Default to 3001 to avoid conflicts with web servers on 8080
 	}
 
 	allowedOrigins := os.Getenv("ALLOWED_ORIGINS")

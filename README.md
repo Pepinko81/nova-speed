@@ -66,7 +66,7 @@ go run main.go
 make run
 ```
 
-The backend will be available at `http://localhost:8080`
+The backend will be available at `http://localhost:3001`
 
 ### Docker Deployment
 

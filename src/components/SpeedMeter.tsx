@@ -14,7 +14,6 @@ export const SpeedMeter = ({ speed, maxSpeed, isTesting }: SpeedMeterProps) => {
   }, [speed]);
 
   const percentage = Math.min((displaySpeed / maxSpeed) * 100, 100);
-  const rotation = (percentage / 100) * 270 - 135; // -135 to 135 degrees
 
   return (
     <div className="relative w-full max-w-sm mx-auto aspect-square flex items-center justify-center">
@@ -84,21 +83,6 @@ export const SpeedMeter = ({ speed, maxSpeed, isTesting }: SpeedMeterProps) => {
             </div>
           </div>
         </div>
-        
-        {/* Needle indicator */}
-        <div 
-          className="absolute top-1/2 left-1/2 w-0.5 sm:w-1 h-20 sm:h-24 -mt-20 sm:-mt-24 -ml-px sm:-ml-0.5 origin-bottom transition-transform duration-500 ease-out"
-          style={{ transform: `rotate(${rotation}deg)` }}
-        >
-          <div className="w-full h-full gradient-primary rounded-full" 
-               style={{ 
-                 boxShadow: isTesting ? '0 0 15px hsl(var(--speed-glow))' : 'none' 
-               }} 
-          />
-        </div>
-        
-        {/* Center dot */}
-        <div className={`absolute top-1/2 left-1/2 w-3 h-3 sm:w-4 sm:h-4 -mt-1.5 sm:-mt-2 -ml-1.5 sm:-ml-2 rounded-full gradient-primary ${isTesting ? 'glow animate-pulse-glow' : ''}`} />
       </div>
     </div>
   );

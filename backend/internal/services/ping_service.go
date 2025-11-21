@@ -63,16 +63,19 @@ func (s *PingService) RunTest(c *websocket.Conn) *models.PingResult {
 			continue
 		}
 
-		// Calculate latency using monotonic time difference
-		// The client should echo back the same timestamp, so we calculate RTT
-		receiveTime := models.GetMonotonicTime()
-		latencyNs := float64(receiveTime - pingTimestamp)
-		latencyMs := latencyNs / 1_000_000.0 // Convert to milliseconds
-
-		// Alternative: use wall clock time if monotonic time doesn't work across network
-		// This is more accurate for network latency measurement
+		// Calculate latency using wall clock time (more accurate for network)
+		// We measure RTT (Round Trip Time) from when we sent to when we received
 		rtt := time.Since(sendTime)
-		latencyMs = float64(rtt.Nanoseconds()) / 1_000_000.0
+		latencyMs := float64(rtt.Nanoseconds()) / 1_000_000.0 // Convert to milliseconds
+		
+		// Validate latency is reasonable (filter out unrealistic values)
+		// Localhost should be < 10ms, normal network < 500ms
+		if latencyMs < 0 || latencyMs > 1000 {
+			s.logger.Warn("Invalid latency measurement, skipping", 
+				zap.Float64("latency", latencyMs),
+				zap.Int("sequence", i))
+			continue
+		}
 
 		latencies = append(latencies, latencyMs)
 
