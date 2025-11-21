@@ -11,6 +11,9 @@ type Config struct {
 	MaxConnections int
 	EnableLogging  bool
 	EnableMetrics  bool
+	GeoIPCityPath  string
+	GeoIPASNPath   string
+	GeoIPISPPath   string
 }
 
 func Load() *Config {
@@ -34,12 +37,31 @@ func Load() *Config {
 	enableLogging := os.Getenv("ENABLE_LOGGING") != "false"
 	enableMetrics := os.Getenv("ENABLE_METRICS") != "false"
 
+	// GeoIP database paths
+	geoIPCityPath := os.Getenv("GEOIP_CITY_PATH")
+	if geoIPCityPath == "" {
+		geoIPCityPath = "/usr/share/GeoIP/GeoLite2-City.mmdb"
+	}
+
+	geoIPASNPath := os.Getenv("GEOIP_ASN_PATH")
+	if geoIPASNPath == "" {
+		geoIPASNPath = "/usr/share/GeoIP/GeoLite2-ASN.mmdb"
+	}
+
+	geoIPISPPath := os.Getenv("GEOIP_ISP_PATH")
+	if geoIPISPPath == "" {
+		geoIPISPPath = "/usr/share/GeoIP/GeoLite2-ISP.mmdb"
+	}
+
 	return &Config{
 		Port:           port,
 		AllowedOrigins: allowedOrigins,
 		MaxConnections: maxConnections,
 		EnableLogging:  enableLogging,
 		EnableMetrics:  enableMetrics,
+		GeoIPCityPath:  geoIPCityPath,
+		GeoIPASNPath:   geoIPASNPath,
+		GeoIPISPPath:   geoIPISPPath,
 	}
 }
 

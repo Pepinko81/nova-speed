@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { SpeedMeter } from "@/components/SpeedMeter";
 import { StatsDisplay } from "@/components/StatsDisplay";
+import { NetworkInfo } from "@/components/NetworkInfo";
 import { Zap } from "lucide-react";
 import { SpeedTestClient, TestProgress } from "@/lib/speedtest-client";
 
@@ -180,6 +181,11 @@ const Index = () => {
           upload={upload}
           isVisible={testState === "complete"}
         />
+
+        {/* Network Info */}
+        <div className="w-full max-w-2xl mx-auto px-4 mt-8">
+          <NetworkInfo />
+        </div>
       </main>
 
       {/* Footer */}

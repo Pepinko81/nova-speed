@@ -10,6 +10,7 @@ import (
 	"nova-speed/backend/internal/handlers"
 	"nova-speed/backend/internal/logger"
 	"nova-speed/backend/internal/middleware"
+	"nova-speed/backend/internal/services"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -67,8 +68,38 @@ func main() {
 		})
 	})
 
+	// Initialize geolocation service (optional, graceful degradation if DB not available)
+	var geoService *services.GeolocationService
+	if cfg.GeoIPCityPath != "" {
+		geo, err := services.NewGeolocationService(appLogger, cfg.GeoIPCityPath)
+		if err != nil {
+			appLogger.Warn("Geolocation service not available", zap.Error(err), zap.String("path", cfg.GeoIPCityPath))
+		} else {
+			geoService = geo
+			defer geoService.Close()
+			appLogger.Info("Geolocation service initialized", zap.String("path", cfg.GeoIPCityPath))
+		}
+	}
+
 	// Initialize handlers
 	testHandler := handlers.NewTestHandler(appLogger, cfg)
+	
+	// Initialize info handler (if geolocation is available)
+	if geoService != nil {
+		infoHandler := handlers.NewInfoHandler(appLogger, cfg, geoService)
+		app.Get("/info", infoHandler.HandleInfo)
+		appLogger.Info("IP info endpoint enabled at /info")
+	} else {
+		// Fallback endpoint that returns just IP
+		app.Get("/info", func(c *fiber.Ctx) error {
+			return c.JSON(fiber.Map{
+				"ip":      c.IP(),
+				"error":   "Geolocation database not available",
+				"message": "Install MaxMind GeoLite2 database to enable geolocation",
+			})
+		})
+		appLogger.Info("IP info endpoint enabled (IP only, no geolocation)")
+	}
 
 	// Register WebSocket routes
 	testHandler.RegisterWebSocketRoutes(app)

@@ -15,6 +15,12 @@ services:
       - ENABLE_LOGGING=true
       - ENABLE_METRICS=true
       - ENV=production
+      - GEOIP_CITY_PATH=/usr/share/GeoIP/GeoLite2-City.mmdb
+      - GEOIP_ASN_PATH=/usr/share/GeoIP/GeoLite2-ASN.mmdb
+      - GEOIP_ISP_PATH=/usr/share/GeoIP/GeoLite2-ISP.mmdb
+    volumes:
+      # Mount GeoIP databases (download from MaxMind and place in ./geoip directory)
+      - ./geoip:/usr/share/GeoIP:ro
     restart: unless-stopped
     networks:
       - nova-speed-network

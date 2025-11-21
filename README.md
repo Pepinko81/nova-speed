@@ -94,6 +94,9 @@ Create a `.env` file in the root directory:
 ```env
 # WebSocket URL (optional - defaults to same host as frontend)
 VITE_WS_URL=wss://speedflux.hashmatrix.dev
+
+# Backend API port (optional, defaults to 3001)
+VITE_API_PORT=3001
 ```
 
 ### Backend Environment Variables
@@ -101,13 +104,42 @@ VITE_WS_URL=wss://speedflux.hashmatrix.dev
 The backend can be configured via environment variables:
 
 ```env
-PORT=8080
+PORT=3001
 ALLOWED_ORIGINS=https://speedflux.hashmatrix.dev,https://www.speedflux.hashmatrix.dev
 MAX_CONNECTIONS=1000
 ENABLE_LOGGING=true
 ENABLE_METRICS=true
 ENV=production
+
+# GeoIP Database Paths (optional, defaults shown)
+GEOIP_CITY_PATH=/usr/share/GeoIP/GeoLite2-City.mmdb
+GEOIP_ASN_PATH=/usr/share/GeoIP/GeoLite2-ASN.mmdb
+GEOIP_ISP_PATH=/usr/share/GeoIP/GeoLite2-ISP.mmdb
 ```
+
+### IP Geolocation Setup
+
+SpeedFlux uses MaxMind GeoLite2 databases for IP geolocation. To enable geolocation:
+
+1. **Sign up for MaxMind account** (free):
+   - Visit: https://www.maxmind.com/en/geolite2/signup
+   - Create an account and generate a license key
+
+2. **Download databases**:
+   ```bash
+   cd backend
+   export MAXMIND_LICENSE_KEY=your_license_key_here
+   ./scripts/download-geoip.sh
+   ```
+
+3. **For Docker deployment**:
+   - Place databases in `backend/geoip/` directory
+   - They will be automatically mounted in the container
+
+4. **For manual deployment**:
+   - Copy databases to `/usr/share/GeoIP/` or set `GEOIP_CITY_PATH` environment variable
+
+**Note**: The application will work without GeoIP databases, but will only return IP addresses without location information.
 
 ## Project Structure
 
@@ -137,6 +169,15 @@ nova-speed/
 - Smooth UI animations during tests
 - Real-time speed meter updates
 
+### IP Geolocation
+- Automatic client IP detection (supports proxies, load balancers, Cloudflare)
+- City, country, latitude, longitude detection
+- ASN and ISP information
+- Timezone detection
+- Location accuracy indicators
+- Cached lookups for performance
+- Fully local - no external services required
+
 ### Performance Optimizations
 - Adaptive payload scaling based on network speed
 - Parallel streams for accurate bandwidth measurement
@@ -154,9 +195,9 @@ nova-speed/
 
 ### WebSocket Endpoints
 
-- `ws://host:8080/ws/ping` - Ping/latency test
-- `ws://host:8080/ws/download` - Download throughput test
-- `ws://host:8080/ws/upload` - Upload throughput test
+- `ws://host:3001/ws/ping` - Ping/latency test
+- `ws://host:3001/ws/download` - Download throughput test
+- `ws://host:3001/ws/upload` - Upload throughput test
 
 ### HTTP Endpoints
 

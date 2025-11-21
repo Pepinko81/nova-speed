@@ -80,7 +80,7 @@ backend/
 2. **Or build manually**:
    ```bash
    docker build -t nova-speed-backend .
-   docker run -p 8080:8080 nova-speed-backend
+   docker run -p 3001:3001 -v $(pwd)/geoip:/usr/share/GeoIP:ro nova-speed-backend
    ```
 
 ## Configuration
@@ -89,11 +89,14 @@ Configuration is managed through environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `8080` | Server port |
-| `ALLOWED_ORIGINS` | `*` | Comma-separated list of allowed CORS origins |
+| `PORT` | `3001` | Server port |
+| `ALLOWED_ORIGINS` | See config | Comma-separated list of allowed CORS origins |
 | `MAX_CONNECTIONS` | `1000` | Maximum concurrent connections |
 | `ENABLE_LOGGING` | `true` | Enable request/response logging |
 | `ENABLE_METRICS` | `true` | Enable CPU and traffic metrics |
+| `GEOIP_CITY_PATH` | `/usr/share/GeoIP/GeoLite2-City.mmdb` | Path to GeoLite2-City database |
+| `GEOIP_ASN_PATH` | `/usr/share/GeoIP/GeoLite2-ASN.mmdb` | Path to GeoLite2-ASN database (optional) |
+| `GEOIP_ISP_PATH` | `/usr/share/GeoIP/GeoLite2-ISP.mmdb` | Path to GeoLite2-ISP database (optional) |
 | `ENV` | `production` | Environment (development/production) |
 
 ## API Endpoints
@@ -113,6 +116,40 @@ Returns server status.
   "service": "nova-speed-backend"
 }
 ```
+
+### IP Information
+
+```http
+GET /info
+```
+
+Returns client IP address and geolocation information (if GeoIP database is available).
+
+**Response:**
+```json
+{
+  "ip": "192.168.1.1",
+  "country": "United States",
+  "countryCode": "US",
+  "city": "New York",
+  "latitude": 40.7128,
+  "longitude": -74.0060,
+  "asn": 15169,
+  "isp": "Google LLC",
+  "timezone": "America/New_York",
+  "accuracy": "City level (high accuracy)"
+}
+```
+
+**IP Detection:**
+The endpoint automatically detects the real client IP by checking:
+1. `X-Real-IP` header (common with reverse proxies)
+2. `X-Forwarded-For` header (load balancers)
+3. `CF-Connecting-IP` header (Cloudflare)
+4. Remote IP (fallback)
+
+**Caching:**
+IP lookups are cached for 24 hours to improve performance and reduce database load.
 
 ### WebSocket Endpoints
 
