@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nova Speed Test - Client Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .progress {
+            margin: 10px 0;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            background: #28a745;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <h1>Nova Speed Test - Client Example</h1>
+    <p>This is a simple example demonstrating how to connect to the Nova Speed Test backend.</p>
+    
+    <div class="test-section">
+        <h2>Ping Test</h2>
+        <button id="pingBtn" onclick="runPingTest()">Run Ping Test</button>
+        <div id="pingResult" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Download Test</h2>
+        <button id="downloadBtn" onclick="runDownloadTest()">Run Download Test</button>
+        <div class="progress" id="downloadProgress" style="display: none;">
+            <div class="progress-bar" id="downloadBar" style="width: 0%"></div>
+        </div>
+        <div id="downloadResult" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Upload Test</h2>
+        <button id="uploadBtn" onclick="runUploadTest()">Run Upload Test</button>
+        <div class="progress" id="uploadProgress" style="display: none;">
+            <div class="progress-bar" id="uploadBar" style="width: 0%"></div>
+        </div>
+        <div id="uploadResult" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Full Test</h2>
+        <button id="fullBtn" onclick="runFullTest()">Run Full Test</button>
+        <div id="fullResult" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const WS_BASE_URL = 'ws://localhost:8080';
+
+        function runPingTest() {
+            const btn = document.getElementById('pingBtn');
+            const resultDiv = document.getElementById('pingResult');
+            btn.disabled = true;
+            resultDiv.style.display = 'none';
+
+            const ws = new WebSocket(`${WS_BASE_URL}/ws/ping`);
+            
+            ws.onopen = () => {
+                console.log('Ping test connected');
+            };
+
+            ws.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                
+                if (message.type === 'ping') {
+                    // Echo back as pong
+                    ws.send(JSON.stringify({
+                        type: 'pong',
+                        timestamp: message.timestamp,
+                        sequence: message.sequence
+                    }));
+                } else if (message.type === 'result') {
+                    resultDiv.innerHTML = `
+                        <strong>Ping Test Results:</strong><br>
+                        Latency: ${message.latency.toFixed(2)} ms<br>
+                        Jitter: ${message.jitter.toFixed(2)} ms<br>
+                        Packets: ${message.packets}
+                    `;
+                    resultDiv.style.display = 'block';
+                    btn.disabled = false;
+                    ws.close();
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('Ping test error:', error);
+                resultDiv.innerHTML = '<strong>Error:</strong> Connection failed. Make sure the server is running.';
+                resultDiv.style.display = 'block';
+                btn.disabled = false;
+            };
+        }
+
+        function runDownloadTest() {
+            const btn = document.getElementById('downloadBtn');
+            const resultDiv = document.getElementById('downloadResult');
+            const progressDiv = document.getElementById('downloadProgress');
+            const progressBar = document.getElementById('downloadBar');
+            
+            btn.disabled = true;
+            resultDiv.style.display = 'none';
+            progressDiv.style.display = 'block';
+            progressBar.style.width = '0%';
+
+            let bytesReceived = 0;
+            const startTime = performance.now();
+
+            const ws = new WebSocket(`${WS_BASE_URL}/ws/download`);
+            
+            ws.onopen = () => {
+                console.log('Download test connected');
+                ws.send(JSON.stringify({ type: 'start', chunkSize: 256 * 1024 }));
+            };
+
+            ws.onmessage = (event) => {
+                if (event.data instanceof Blob) {
+                    bytesReceived += event.data.size;
+                    const elapsed = (performance.now() - startTime) / 1000;
+                    const mbps = (bytesReceived * 8) / (elapsed * 1_000_000);
+                    const progress = Math.min((elapsed / 10) * 100, 100); // 10 second test
+                    progressBar.style.width = progress + '%';
+                } else {
+                    const result = JSON.parse(event.data);
+                    if (result.type === 'result') {
+                        resultDiv.innerHTML = `
+                            <strong>Download Test Results:</strong><br>
+                            Throughput: ${result.throughput.toFixed(2)} Mbps<br>
+                            Bytes: ${(result.bytes / 1024 / 1024).toFixed(2)} MB<br>
+                            Duration: ${result.duration.toFixed(2)}s
+                        `;
+                        resultDiv.style.display = 'block';
+                        progressDiv.style.display = 'none';
+                        btn.disabled = false;
+                        ws.close();
+                    }
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('Download test error:', error);
+                resultDiv.innerHTML = '<strong>Error:</strong> Connection failed. Make sure the server is running.';
+                resultDiv.style.display = 'block';
+                progressDiv.style.display = 'none';
+                btn.disabled = false;
+            };
+        }
+
+        function runUploadTest() {
+            const btn = document.getElementById('uploadBtn');
+            const resultDiv = document.getElementById('uploadResult');
+            const progressDiv = document.getElementById('uploadProgress');
+            const progressBar = document.getElementById('uploadBar');
+            
+            btn.disabled = true;
+            resultDiv.style.display = 'none';
+            progressDiv.style.display = 'block';
+            progressBar.style.width = '0%';
+
+            let bytesSent = 0;
+            let chunkSize = 256 * 1024;
+            const startTime = performance.now();
+            const testDuration = 10000; // 10 seconds
+            let animationFrameId;
+
+            const ws = new WebSocket(`${WS_BASE_URL}/ws/upload`);
+
+            const sendChunk = () => {
+                if (performance.now() - startTime >= testDuration) {
+                    ws.send(JSON.stringify({ type: 'complete' }));
+                    cancelAnimationFrame(animationFrameId);
+                    return;
+                }
+
+                const buffer = new Uint8Array(chunkSize);
+                crypto.getRandomValues(buffer);
+                ws.send(buffer);
+                bytesSent += chunkSize;
+
+                const elapsed = (performance.now() - startTime) / 1000;
+                const progress = (elapsed / 10) * 100;
+                progressBar.style.width = Math.min(progress, 100) + '%';
+
+                animationFrameId = requestAnimationFrame(sendChunk);
+            };
+            
+            ws.onopen = () => {
+                console.log('Upload test connected');
+                sendChunk();
+            };
+
+            ws.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                
+                if (message.type === 'chunkSize') {
+                    chunkSize = message.chunkSize;
+                } else if (message.type === 'result') {
+                    cancelAnimationFrame(animationFrameId);
+                    resultDiv.innerHTML = `
+                        <strong>Upload Test Results:</strong><br>
+                        Throughput: ${message.throughput.toFixed(2)} Mbps<br>
+                        Bytes: ${(message.bytes / 1024 / 1024).toFixed(2)} MB<br>
+                        Duration: ${message.duration.toFixed(2)}s
+                    `;
+                    resultDiv.style.display = 'block';
+                    progressDiv.style.display = 'none';
+                    btn.disabled = false;
+                    ws.close();
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('Upload test error:', error);
+                cancelAnimationFrame(animationFrameId);
+                resultDiv.innerHTML = '<strong>Error:</strong> Connection failed. Make sure the server is running.';
+                resultDiv.style.display = 'block';
+                progressDiv.style.display = 'none';
+                btn.disabled = false;
+            };
+        }
+
+        async function runFullTest() {
+            const btn = document.getElementById('fullBtn');
+            const resultDiv = document.getElementById('fullResult');
+            btn.disabled = true;
+            resultDiv.style.display = 'none';
+            resultDiv.innerHTML = 'Running full test...';
+
+            const results = {
+                ping: null,
+                download: null,
+                upload: null
+            };
+
+            // Run ping test
+            try {
+                results.ping = await new Promise((resolve, reject) => {
+                    const ws = new WebSocket(`${WS_BASE_URL}/ws/ping`);
+                    ws.onmessage = (event) => {
+                        const msg = JSON.parse(event.data);
+                        if (msg.type === 'ping') {
+                            ws.send(JSON.stringify({ type: 'pong', timestamp: msg.timestamp, sequence: msg.sequence }));
+                        } else if (msg.type === 'result') {
+                            resolve(msg);
+                            ws.close();
+                        }
+                    };
+                    ws.onerror = reject;
+                });
+            } catch (e) {
+                console.error('Ping test failed:', e);
+            }
+
+            // Run download test
+            try {
+                results.download = await new Promise((resolve, reject) => {
+                    const ws = new WebSocket(`${WS_BASE_URL}/ws/download`);
+                    let bytesReceived = 0;
+                    const startTime = performance.now();
+                    ws.onopen = () => ws.send(JSON.stringify({ type: 'start', chunkSize: 256 * 1024 }));
+                    ws.onmessage = (event) => {
+                        if (event.data instanceof Blob) {
+                            bytesReceived += event.data.size;
+                        } else {
+                            const msg = JSON.parse(event.data);
+                            if (msg.type === 'result') {
+                                resolve(msg);
+                                ws.close();
+                            }
+                        }
+                    };
+                    ws.onerror = reject;
+                });
+            } catch (e) {
+                console.error('Download test failed:', e);
+            }
+
+            // Run upload test
+            try {
+                results.upload = await new Promise((resolve, reject) => {
+                    const ws = new WebSocket(`${WS_BASE_URL}/ws/upload`);
+                    let chunkSize = 256 * 1024;
+                    const startTime = performance.now();
+                    const testDuration = 10000;
+                    let animationFrameId;
+
+                    const sendChunk = () => {
+                        if (performance.now() - startTime >= testDuration) {
+                            ws.send(JSON.stringify({ type: 'complete' }));
+                            cancelAnimationFrame(animationFrameId);
+                            return;
+                        }
+                        const buffer = new Uint8Array(chunkSize);
+                        crypto.getRandomValues(buffer);
+                        ws.send(buffer);
+                        animationFrameId = requestAnimationFrame(sendChunk);
+                    };
+
+                    ws.onopen = () => sendChunk();
+                    ws.onmessage = (event) => {
+                        const msg = JSON.parse(event.data);
+                        if (msg.type === 'chunkSize') {
+                            chunkSize = msg.chunkSize;
+                        } else if (msg.type === 'result') {
+                            cancelAnimationFrame(animationFrameId);
+                            resolve(msg);
+                            ws.close();
+                        }
+                    };
+                    ws.onerror = reject;
+                });
+            } catch (e) {
+                console.error('Upload test failed:', e);
+            }
+
+            // Display results
+            resultDiv.innerHTML = `
+                <strong>Full Test Results:</strong><br><br>
+                <strong>Ping:</strong><br>
+                ${results.ping ? `Latency: ${results.ping.latency.toFixed(2)} ms, Jitter: ${results.ping.jitter.toFixed(2)} ms` : 'Failed'}<br><br>
+                <strong>Download:</strong><br>
+                ${results.download ? `${results.download.throughput.toFixed(2)} Mbps` : 'Failed'}<br><br>
+                <strong>Upload:</strong><br>
+                ${results.upload ? `${results.upload.throughput.toFixed(2)} Mbps` : 'Failed'}
+            `;
+            resultDiv.style.display = 'block';
+            btn.disabled = false;
+        }
+    </script>
+</body>
+</html>
+

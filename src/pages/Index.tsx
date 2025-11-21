@@ -1,51 +1,82 @@
-import { useState, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { SpeedMeter } from "@/components/SpeedMeter";
 import { StatsDisplay } from "@/components/StatsDisplay";
 import { Zap } from "lucide-react";
+import { SpeedTestClient, TestProgress } from "@/lib/speedtest-client";
 
 type TestState = "idle" | "testing" | "complete";
+type TestPhase = "ping" | "download" | "upload" | null;
 
 const Index = () => {
   const [testState, setTestState] = useState<TestState>("idle");
+  const [testPhase, setTestPhase] = useState<TestPhase>(null);
   const [speed, setSpeed] = useState(0);
   const [ping, setPing] = useState<number | null>(null);
   const [download, setDownload] = useState<number | null>(null);
   const [upload, setUpload] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const clientRef = useRef<SpeedTestClient | null>(null);
 
-  // Simulated speed test logic (frontend only)
+  // Initialize client
+  if (!clientRef.current) {
+    const wsUrl = import.meta.env.VITE_WS_URL;
+    clientRef.current = new SpeedTestClient(wsUrl);
+  }
+
   const runSpeedTest = async () => {
     setTestState("testing");
     setSpeed(0);
     setPing(null);
     setDownload(null);
     setUpload(null);
+    setError(null);
+    setTestPhase("ping");
 
-    // Simulate ping test
-    await new Promise(resolve => setTimeout(resolve, 800));
-    const simulatedPing = Math.random() * 30 + 10;
-    setPing(simulatedPing);
+    try {
+      const client = clientRef.current!;
 
-    // Simulate download test with gradual speed increase
-    for (let i = 0; i <= 100; i += 2) {
-      await new Promise(resolve => setTimeout(resolve, 30));
-      const simulatedDownload = Math.random() * 150 + 50;
-      setSpeed(simulatedDownload);
-      if (i === 100) setDownload(simulatedDownload);
+      // Progress callback for real-time updates
+      const onProgress = (progress: TestProgress) => {
+        if (progress.test === 'download' || progress.test === 'upload') {
+          setSpeed(progress.value);
+        }
+      };
+
+      // Run ping test
+      setTestPhase("ping");
+      const pingResult = await client.runPingTest(onProgress);
+      setPing(pingResult.latency);
+
+      // Brief pause between tests
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Run download test
+      setTestPhase("download");
+      setSpeed(0);
+      const downloadResult = await client.runDownloadTest(onProgress, 1000);
+      setDownload(downloadResult.throughput);
+      setSpeed(downloadResult.throughput);
+
+      // Brief pause between tests
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Run upload test
+      setTestPhase("upload");
+      setSpeed(0);
+      const uploadResult = await client.runUploadTest(onProgress, 1000);
+      setUpload(uploadResult.throughput);
+      setSpeed(uploadResult.throughput);
+
+      setTestPhase(null);
+      setTestState("complete");
+    } catch (err) {
+      console.error("Speed test error:", err);
+      setError(err instanceof Error ? err.message : "An error occurred during the test");
+      setTestState("idle");
+      setTestPhase(null);
+      setSpeed(0);
     }
-
-    // Brief pause
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // Simulate upload test with gradual speed increase
-    for (let i = 0; i <= 100; i += 2) {
-      await new Promise(resolve => setTimeout(resolve, 30));
-      const simulatedUpload = Math.random() * 100 + 30;
-      setSpeed(simulatedUpload);
-      if (i === 100) setUpload(simulatedUpload);
-    }
-
-    setTestState("complete");
   };
 
   const resetTest = () => {
@@ -85,16 +116,24 @@ const Index = () => {
           </h1>
           <p className="text-muted-foreground text-base sm:text-lg md:text-xl max-w-2xl mx-auto font-light px-4">
             {testState === "idle" && "Tap the button below to start testing"}
-            {testState === "testing" && "Analyzing your connection..."}
+            {testState === "testing" && testPhase === "ping" && "Measuring latency..."}
+            {testState === "testing" && testPhase === "download" && "Testing download speed..."}
+            {testState === "testing" && testPhase === "upload" && "Testing upload speed..."}
+            {testState === "testing" && !testPhase && "Analyzing your connection..."}
             {testState === "complete" && "Test complete! Here are your results"}
           </p>
+          {error && (
+            <p className="text-destructive text-sm mt-2 px-4">
+              {error}
+            </p>
+          )}
         </div>
 
         {/* Speed meter */}
         <div className="w-full max-w-[280px] sm:max-w-sm md:max-w-md animate-scale-in px-4">
           <SpeedMeter 
             speed={speed} 
-            maxSpeed={200} 
+            maxSpeed={1000} 
             isTesting={testState === "testing"}
           />
         </div>
@@ -146,7 +185,7 @@ const Index = () => {
       {/* Footer */}
       <footer className="relative z-10 py-4 sm:py-6 px-4 text-center text-xs sm:text-sm text-muted-foreground">
         <p className="font-light">
-          Results are simulated for demonstration purposes
+          Powered by SpeedFlux - Accurate internet speed testing
         </p>
       </footer>
     </div>

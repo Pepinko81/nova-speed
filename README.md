@@ -1,73 +1,228 @@
-# Welcome to your Lovable project
+# SpeedFlux - Internet Speed Test
 
-## Project info
+A production-grade Internet Speed Test application with a beautiful, modern UI and a high-performance Go backend.
 
-**URL**: https://lovable.dev/projects/77b7438d-9313-4ed3-870b-21e1c4bd378b
+## Project Overview
 
-## How can I edit this code?
+SpeedFlux provides accurate, real-time internet speed testing with three core measurements:
+- **Ping/Latency + Jitter**: Measures network latency and connection stability
+- **Download Speed**: Tests download throughput with multi-connection streaming
+- **Upload Speed**: Tests upload throughput with adaptive chunk sizing
 
-There are several ways of editing your application.
+## Technology Stack
 
-**Use Lovable**
+**Frontend:**
+- React 18 with TypeScript
+- Vite for fast development and building
+- Tailwind CSS for styling
+- shadcn-ui components
+- WebSocket for real-time communication
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/77b7438d-9313-4ed3-870b-21e1c4bd378b) and start prompting.
+**Backend:**
+- Go (Golang) 1.21+
+- Fiber web framework
+- WebSocket for real-time testing
+- Docker for containerization
 
-Changes made via Lovable will be committed automatically to this repo.
+## Quick Start
 
-**Use your preferred IDE**
+### Prerequisites
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- Node.js 18+ and npm
+- Go 1.21+ (for backend development)
+- Docker and Docker Compose (optional, for containerized deployment)
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### Frontend Development
 
-Follow these steps:
+```bash
+# Install dependencies
+npm install
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
 ```
 
-**Edit a file directly in GitHub**
+The frontend will be available at `http://localhost:3000`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Backend Development
 
-**Use GitHub Codespaces**
+```bash
+# Navigate to backend directory
+cd backend
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+# Install dependencies
+go mod download
 
-## What technologies are used for this project?
+# Run the server
+go run main.go
 
-This project is built with:
+# Or use Makefile
+make run
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+The backend will be available at `http://localhost:8080`
 
-## How can I deploy this project?
+### Docker Deployment
 
-Simply open [Lovable](https://lovable.dev/projects/77b7438d-9313-4ed3-870b-21e1c4bd378b) and click on Share -> Publish.
+**Backend:**
+```bash
+cd backend
+docker-compose up -d
+```
 
-## Can I connect a custom domain to my Lovable project?
+**Frontend:**
+```bash
+# Build the frontend
+npm run build
 
-Yes, you can!
+# Serve with any static file server
+# Or use Docker with nginx
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Configuration
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+### Frontend Environment Variables
+
+Create a `.env` file in the root directory:
+
+```env
+# WebSocket URL (optional - defaults to same host as frontend)
+VITE_WS_URL=wss://speedflux.hashmatrix.dev
+```
+
+### Backend Environment Variables
+
+The backend can be configured via environment variables:
+
+```env
+PORT=8080
+ALLOWED_ORIGINS=https://speedflux.hashmatrix.dev,https://www.speedflux.hashmatrix.dev
+MAX_CONNECTIONS=1000
+ENABLE_LOGGING=true
+ENABLE_METRICS=true
+ENV=production
+```
+
+## Project Structure
+
+```
+nova-speed/
+├── src/                    # Frontend source code
+│   ├── components/         # React components
+│   ├── lib/               # Utilities and services
+│   │   └── speedtest-client.ts  # WebSocket client
+│   ├── pages/             # Page components
+│   └── main.tsx           # Entry point
+├── backend/               # Go backend
+│   ├── internal/          # Internal packages
+│   │   ├── handlers/     # WebSocket handlers
+│   │   ├── services/      # Test logic
+│   │   ├── models/        # Data models
+│   │   └── utils/         # Utilities
+│   └── main.go            # Entry point
+├── public/                # Static assets
+└── package.json           # Frontend dependencies
+```
+
+## Features
+
+### Real-time Testing
+- WebSocket-based communication for instant updates
+- Smooth UI animations during tests
+- Real-time speed meter updates
+
+### Performance Optimizations
+- Adaptive payload scaling based on network speed
+- Parallel streams for accurate bandwidth measurement
+- Randomized payloads to prevent caching
+- Monotonic clock usage for precise timing
+
+### Production Ready
+- Comprehensive error handling
+- Connection limits and rate limiting
+- CORS and security headers
+- Structured logging
+- Health check endpoints
+
+## API Endpoints
+
+### WebSocket Endpoints
+
+- `ws://host:8080/ws/ping` - Ping/latency test
+- `ws://host:8080/ws/download` - Download throughput test
+- `ws://host:8080/ws/upload` - Upload throughput test
+
+### HTTP Endpoints
+
+- `GET /health` - Health check
+
+See [backend README](./backend/README.md) for detailed API documentation.
+
+## Deployment
+
+### Production Deployment
+
+1. **Build Frontend:**
+   ```bash
+   npm run build
+   ```
+
+2. **Deploy Backend:**
+   ```bash
+   cd backend
+   docker-compose up -d
+   ```
+
+3. **Configure Environment:**
+   - Set `ALLOWED_ORIGINS` to your frontend domain
+   - Configure `VITE_WS_URL` in frontend `.env` for production
+
+### Domain Configuration
+
+The application is configured for:
+- **Production Domain**: https://speedflux.hashmatrix.dev
+
+Update CORS settings in backend configuration to match your deployment domain.
+
+## Development
+
+### Running Tests
+
+**Frontend:**
+```bash
+npm run lint
+```
+
+**Backend:**
+```bash
+cd backend
+make test
+```
+
+### Code Structure
+
+- Frontend follows React best practices with TypeScript
+- Backend follows clean architecture principles
+- Both use modern tooling and best practices
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## License
+
+This project is part of the SpeedFlux application.
+
+## Support
+
+For issues and questions, please open an issue on the repository.
