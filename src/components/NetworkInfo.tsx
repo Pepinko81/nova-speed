@@ -43,17 +43,40 @@ export const NetworkInfo = ({ className = "" }: NetworkInfoProps) => {
         setLoading(true);
         setError(null);
         
-        // Determine API URL (use same host and port logic as WebSocket)
-        const protocol = window.location.protocol;
-        const host = window.location.hostname;
-        // For production domain, use same port; for localhost, use 3001
-        const port = host.includes('speedflux.hashmatrix.dev') ? '' : ':3001';
-        const apiUrl = `${protocol}//${host}${port}/info`;
+        // Determine API URL (use same logic as WebSocket client)
+        const wsUrl = import.meta.env.VITE_WS_URL;
+        let apiUrl: string;
         
-        const response = await fetch(apiUrl);
+        if (wsUrl) {
+          // If VITE_WS_URL is set, use it but change ws:// to http:// or wss:// to https://
+          apiUrl = wsUrl.replace(/^ws:/, 'http:').replace(/^wss:/, 'https:') + '/info';
+        } else if (typeof window !== 'undefined') {
+          // Auto-detect based on current page
+          const protocol = window.location.protocol;
+          const host = window.location.hostname;
+          const port = host.includes('speedflux.hashmatrix.dev') ? '' : ':3001';
+          apiUrl = `${protocol}//${host}${port}/info`;
+        } else {
+          apiUrl = 'http://localhost:3001/info';
+        }
+        
+        const response = await fetch(apiUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+        });
         
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          // Try to get error message from response
+          let errorMsg = `HTTP error! status: ${response.status}`;
+          try {
+            const errorData = await response.json();
+            errorMsg = errorMsg = errorData.error || errorData.message || errorMsg;
+          } catch {
+            // Ignore JSON parse errors
+          }
+          throw new Error(errorMsg);
         }
         
         const data: IPInfo = await response.json();
@@ -80,7 +103,8 @@ export const NetworkInfo = ({ className = "" }: NetworkInfoProps) => {
     );
   }
 
-  if (error || (info && info.error)) {
+  // Show error only if we have no info at all
+  if (error && !info) {
     return (
       <div className={`glass rounded-xl sm:rounded-2xl p-4 sm:p-6 ${className}`}>
         <div className="flex items-center gap-3 text-destructive">
@@ -88,7 +112,7 @@ export const NetworkInfo = ({ className = "" }: NetworkInfoProps) => {
           <div>
             <div className="font-semibold">Unable to load network information</div>
             <div className="text-sm text-muted-foreground mt-1">
-              {error || info?.error || info?.message || "Network information is not available"}
+              {error}
             </div>
           </div>
         </div>
@@ -108,6 +132,18 @@ export const NetworkInfo = ({ className = "" }: NetworkInfoProps) => {
           <Globe className="w-5 h-5 text-primary" />
           <h3 className="text-lg font-semibold">Network Information</h3>
         </div>
+
+        {/* Warning message if geolocation not available */}
+        {info.error && (
+          <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg border border-border/50">
+            <AlertCircle className="w-4 h-4 text-muted-foreground mt-0.5" />
+            <div className="flex-1">
+              <div className="text-xs text-muted-foreground">
+                {info.message || info.error}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* IP Address */}
         <div className="flex items-start gap-3">
@@ -204,4 +240,3 @@ export const NetworkInfo = ({ className = "" }: NetworkInfoProps) => {
     </div>
   );
 };
-
