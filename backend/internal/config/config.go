@@ -25,7 +25,8 @@ func Load() *Config {
 	allowedOrigins := os.Getenv("ALLOWED_ORIGINS")
 	if allowedOrigins == "" {
 		// Default to production domain and localhost for development
-		allowedOrigins = "https://hashmatrix.dev,https://www.hashmatrix.dev,http://localhost:3000,http://localhost:5173"
+		// Include common local network ranges for local testing
+		allowedOrigins = "https://hashmatrix.dev,https://www.hashmatrix.dev,http://localhost:3000,http://localhost:5173,http://192.168.0.0/16,http://10.0.0.0/8,http://172.16.0.0/12"
 	}
 
 	maxConnections := 1000
