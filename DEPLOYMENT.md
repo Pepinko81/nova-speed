@@ -4,7 +4,9 @@ This guide explains how to deploy the SpeedFlux application using the automated 
 
 ## Quick Start
 
-Run the deployment script:
+### Development Deployment
+
+Run the development deployment script:
 
 ```bash
 ./deploy.sh
@@ -15,6 +17,16 @@ The script will:
 2. Check and free ports if needed
 3. Build backend and frontend
 4. Optionally start development servers
+
+### Production Deployment
+
+For production, use the automated production script:
+
+```bash
+sudo ./deploy-production.sh
+```
+
+This will handle the complete production deployment (see Production Deployment section below).
 
 ## Port Configuration
 
@@ -135,22 +147,54 @@ docker-compose up -d
 
 ## Production Deployment
 
-### 1. Build
+### Option 1: Automated Deployment Script (Recommended)
+
+The automated script handles building, installing, and configuring the backend and frontend:
+
+```bash
+# On your server, clone the repository
+git clone https://github.com/your-username/nova-speed.git
+cd nova-speed
+
+# Run the automated deployment script (requires root/sudo)
+sudo ./deploy-production.sh
+```
+
+The script will:
+1. ✅ Check prerequisites (Go, npm)
+2. ✅ Build backend and frontend
+3. ✅ Install backend to `/opt/speedflux/`
+4. ✅ Create systemd service
+5. ✅ Install frontend to `/var/www/speedflux/`
+6. ✅ Optionally setup GeoIP databases
+7. ✅ Enable and start the backend service
+
+**Note:** The script does NOT configure nginx or SSL. You must do that manually (see Option 2 below).
+
+### Option 2: Manual Deployment
+
+#### 1. Build
 
 ```bash
 ./deploy.sh
 # Choose option 2 (Production)
 ```
 
-### 2. Configure Environment
+Or use the production script:
 
-Create `.env` file:
+```bash
+sudo ./deploy-production.sh
+```
+
+#### 2. Configure Environment
+
+Create `.env` file (for frontend build):
 
 ```env
 VITE_WS_URL=wss://speedflux.hashmatrix.dev
 ```
 
-### 3. Deploy Backend
+#### 3. Deploy Backend
 
 ```bash
 # Copy binary to server
@@ -217,7 +261,9 @@ sudo chown -R www-data:www-data /var/www/speedflux
 sudo chmod -R 755 /var/www/speedflux
 ```
 
-### 5. Configure Nginx
+### 4. Configure Nginx (Manual Setup Required)
+
+**Note:** The automated deployment script does NOT configure nginx. You must do this manually.
 
 ```bash
 # Copy nginx configuration
@@ -231,8 +277,9 @@ Full nginx configuration is provided in `nginx-speedflux.conf` file. It includes
 - HTTP to HTTPS redirect
 - SSL/TLS configuration
 - Frontend static file serving
-- Backend API proxy
-- WebSocket proxy for speed tests
+- Backend API proxy (`/api/` → `http://localhost:3001/`)
+- WebSocket proxy for speed tests (`/ws/` → `http://localhost:3001/ws/`)
+- IP info endpoint (`/info` → `http://localhost:3001/info`)
 - Security headers
 
 Enable site:
@@ -243,7 +290,9 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### 6. Setup SSL with Certbot
+### 5. Setup SSL with Certbot (Manual Setup Required)
+
+**Note:** The automated deployment script does NOT setup SSL. You must do this manually.
 
 ```bash
 # Install certbot if not already installed
@@ -264,7 +313,7 @@ sudo certbot renew --dry-run
 
 The certificate will auto-renew. Certbot creates a systemd timer for renewal.
 
-### 7. Setup GeoIP Databases (Optional but Recommended)
+### 6. Setup GeoIP Databases (Optional but Recommended)
 
 ```bash
 # On server, create GeoIP directory
@@ -392,6 +441,17 @@ tail -f frontend.log
 ```
 
 ## Production Deployment Checklist
+
+### Automated Deployment (Recommended)
+
+1. ✅ Clone repository on server
+2. ✅ Run: `sudo ./deploy-production.sh`
+3. ✅ Configure nginx manually (see section 4)
+4. ✅ Setup SSL with certbot manually (see section 5)
+5. ✅ (Optional) Setup GeoIP databases
+6. ✅ Test all endpoints
+
+### Manual Deployment
 
 1. ✅ Build application: `./deploy.sh` (choose option 2)
 2. ✅ Copy backend binary to server: `/opt/speedflux/nova-speed-backend`
