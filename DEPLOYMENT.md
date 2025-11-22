@@ -294,24 +294,174 @@ sudo systemctl reload nginx
 
 **Note:** The automated deployment script does NOT setup SSL. You must do this manually.
 
+#### Option A: Automated SSL Setup (Recommended)
+
+Use the provided script for easier SSL setup:
+
 ```bash
-# Install certbot if not already installed
+# Make script executable
+chmod +x setup-ssl-simple.sh
+
+# Run the script
+sudo ./setup-ssl-simple.sh
+```
+
+This script will:
+1. Create ACME challenge directory
+2. Install HTTP-only nginx configuration
+3. Obtain SSL certificate using standalone mode (more reliable)
+4. Configure nginx with SSL automatically
+
+#### Option B: Manual SSL Setup
+
+If the automated script doesn't work, follow these manual steps:
+
+**Step 1: Install certbot**
+```bash
 sudo apt update
 sudo apt install certbot python3-certbot-nginx
+```
 
-# Obtain SSL certificate
-sudo certbot --nginx -d speedflux.hashmatrix.dev -d www.speedflux.hashmatrix.dev
+**Step 2: Use HTTP-only nginx configuration first**
+```bash
+# Copy HTTP-only configuration (no SSL yet)
+sudo cp nginx-speedflux-http-only.conf /etc/nginx/sites-available/speedflux
 
-# Certbot will automatically:
-# - Obtain certificate from Let's Encrypt
-# - Update nginx configuration with SSL settings
-# - Set up automatic renewal
+# Test and reload nginx
+sudo nginx -t
+sudo systemctl reload nginx
+```
 
-# Test automatic renewal
+**Step 3: Obtain certificate using standalone mode (most reliable)**
+
+If nginx ACME challenge returns 204 errors, use standalone mode:
+
+```bash
+# Stop nginx temporarily (certbot needs port 80)
+sudo systemctl stop nginx
+
+# Obtain certificate
+sudo certbot certonly --standalone \
+    -d speedflux.hashmatrix.dev \
+    --non-interactive \
+    --agree-tos \
+    --email admin@hashmatrix.dev \
+    --preferred-challenges http
+
+# Start nginx again
+sudo systemctl start nginx
+```
+
+**Step 4: Configure nginx with SSL**
+
+After certificate is obtained, use certbot to configure nginx:
+
+```bash
+sudo certbot --nginx -d speedflux.hashmatrix.dev --redirect
+```
+
+If certbot nginx plugin fails, manually update nginx configuration:
+
+```bash
+# Edit nginx config
+sudo nano /etc/nginx/sites-available/speedflux
+```
+
+Add HTTPS server block (see `nginx-speedflux.conf` for full example):
+
+```nginx
+# HTTP to HTTPS redirect
+server {
+    listen 80;
+    listen [::]:80;
+    server_name speedflux.hashmatrix.dev www.speedflux.hashmatrix.dev;
+    
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+    
+    return 301 https://$host$request_uri;
+}
+
+# HTTPS server
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name speedflux.hashmatrix.dev www.speedflux.hashmatrix.dev;
+
+    ssl_certificate /etc/letsencrypt/live/speedflux.hashmatrix.dev/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/speedflux.hashmatrix.dev/privkey.pem;
+    
+    # ... rest of configuration (see nginx-speedflux.conf)
+}
+```
+
+**Step 5: Test and reload**
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+**Step 6: Test automatic renewal**
+```bash
 sudo certbot renew --dry-run
 ```
 
 The certificate will auto-renew. Certbot creates a systemd timer for renewal.
+
+#### Troubleshooting SSL Setup
+
+**Problem: Certbot returns "204 Invalid response" for ACME challenge**
+
+This usually means nginx is not serving the ACME challenge correctly. Solutions:
+
+1. **Use standalone mode** (recommended):
+   ```bash
+   sudo systemctl stop nginx
+   sudo certbot certonly --standalone -d speedflux.hashmatrix.dev
+   sudo systemctl start nginx
+   ```
+
+2. **Check ACME challenge directory**:
+   ```bash
+   sudo mkdir -p /var/www/html/.well-known/acme-challenge
+   sudo chown -R www-data:www-data /var/www/html/.well-known
+   sudo chmod -R 755 /var/www/html/.well-known
+   ```
+
+3. **Verify nginx location block**:
+   ```bash
+   # Test locally
+   echo "test" | sudo tee /var/www/html/.well-known/acme-challenge/test
+   curl http://localhost/.well-known/acme-challenge/test
+   # Should return "test", not 204 or 404
+   ```
+
+**Problem: DNS errors (NXDOMAIN)**
+
+Ensure your domain DNS records point to this server:
+```bash
+# Check DNS
+dig speedflux.hashmatrix.dev
+nslookup speedflux.hashmatrix.dev
+```
+
+**Problem: Certificate obtained but nginx still shows errors**
+
+1. Verify certificate files exist:
+   ```bash
+   sudo ls -la /etc/letsencrypt/live/speedflux.hashmatrix.dev/
+   ```
+
+2. Check nginx error log:
+   ```bash
+   sudo tail -f /var/log/nginx/error.log
+   ```
+
+3. Verify nginx configuration:
+   ```bash
+   sudo nginx -t
+   ```
 
 ### 6. Setup GeoIP Databases (Optional but Recommended)
 
