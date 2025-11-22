@@ -38,6 +38,10 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
+# Get the script directory (more reliable than pwd when using sudo)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$SCRIPT_DIR"
+
 # Get the original user who ran sudo (for build file ownership)
 ORIGINAL_USER=${SUDO_USER:-$USER}
 ORIGINAL_HOME=$(eval echo ~$ORIGINAL_USER)
@@ -50,11 +54,15 @@ fi
 
 # Fallback: use current directory owner if still root
 if [ "$ORIGINAL_USER" = "root" ] || [ -z "$ORIGINAL_USER" ]; then
-    ORIGINAL_USER=$(stat -c '%U' . 2>/dev/null || echo "root")
+    ORIGINAL_USER=$(stat -c '%U' "$PROJECT_ROOT" 2>/dev/null || echo "root")
     ORIGINAL_HOME=$(eval echo ~$ORIGINAL_USER 2>/dev/null || echo "/root")
 fi
 
-echo -e "${BLUE}Building as user: $ORIGINAL_USER${NC}\n"
+# Change to project root directory
+cd "$PROJECT_ROOT"
+
+echo -e "${BLUE}Building as user: $ORIGINAL_USER${NC}"
+echo -e "${BLUE}Project root: $PROJECT_ROOT${NC}\n"
 
 # Function to check prerequisites
 check_prerequisites() {
@@ -88,8 +96,7 @@ check_prerequisites() {
 build_backend() {
     echo -e "${BLUE}Building backend...${NC}"
     
-    # Get absolute path to project root
-    PROJECT_ROOT=$(pwd)
+    # Use project root from script context
     BIN_DIR="$PROJECT_ROOT/bin"
     BACKEND_DIR_ABS="$PROJECT_ROOT/$BACKEND_DIR"
     
@@ -113,10 +120,13 @@ build_backend() {
     
     if [ ! -f "$OUTPUT_PATH" ]; then
         echo -e "${RED}Error: Backend build failed - file not found at $OUTPUT_PATH${NC}"
+        echo -e "${YELLOW}Current directory: $(pwd)${NC}"
+        echo -e "${YELLOW}Looking for: $OUTPUT_PATH${NC}"
+        ls -la "$BIN_DIR" 2>/dev/null || echo "bin directory does not exist"
         exit 1
     fi
     
-    echo -e "${GREEN}✓ Backend built successfully${NC}\n"
+    echo -e "${GREEN}✓ Backend built successfully at $OUTPUT_PATH${NC}\n"
     cd "$PROJECT_ROOT"
 }
 
@@ -154,15 +164,20 @@ build_frontend() {
 install_backend() {
     echo -e "${BLUE}Installing backend...${NC}"
     
-    # Get absolute paths
-    PROJECT_ROOT=$(pwd)
+    # Use project root from script context
     BINARY_SOURCE="$PROJECT_ROOT/bin/$BACKEND_BINARY"
     
     # Check if binary exists
     if [ ! -f "$BINARY_SOURCE" ]; then
         echo -e "${RED}Error: Binary not found at $BINARY_SOURCE${NC}"
-        echo -e "${YELLOW}Checking alternative locations...${NC}"
-        ls -la bin/ 2>/dev/null || echo "bin/ directory not found"
+        echo -e "${YELLOW}Project root: $PROJECT_ROOT${NC}"
+        echo -e "${YELLOW}Current directory: $(pwd)${NC}"
+        echo -e "${YELLOW}Checking bin directory...${NC}"
+        if [ -d "$PROJECT_ROOT/bin" ]; then
+            ls -la "$PROJECT_ROOT/bin/" 2>/dev/null || echo "Cannot list bin directory"
+        else
+            echo "bin/ directory does not exist at $PROJECT_ROOT/bin"
+        fi
         exit 1
     fi
     
