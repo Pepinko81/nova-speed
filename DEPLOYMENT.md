@@ -160,21 +160,37 @@ scp bin/nova-speed-backend user@server:/opt/speedflux/
 sudo nano /etc/systemd/system/speedflux-backend.service
 ```
 
-Service file:
+Service file (`/etc/systemd/system/speedflux-backend.service`):
 
 ```ini
 [Unit]
-Description=SpeedFlux Backend
+Description=SpeedFlux Backend Service
 After=network.target
 
 [Service]
 Type=simple
 User=www-data
+Group=www-data
 WorkingDirectory=/opt/speedflux
 ExecStart=/opt/speedflux/nova-speed-backend
-Environment="PORT=3001"
-Environment="ALLOWED_ORIGINS=https://speedflux.hashmatrix.dev"
 Restart=always
+RestartSec=5
+
+# Environment variables
+Environment="PORT=3001"
+Environment="ALLOWED_ORIGINS=https://speedflux.hashmatrix.dev,https://www.speedflux.hashmatrix.dev"
+Environment="MAX_CONNECTIONS=1000"
+Environment="ENABLE_LOGGING=true"
+Environment="ENABLE_METRICS=true"
+
+# GeoIP database paths (optional)
+Environment="GEOIP_CITY_PATH=/usr/share/GeoIP/GeoLite2-City.mmdb"
+Environment="GEOIP_ASN_PATH=/usr/share/GeoIP/GeoLite2-ASN.mmdb"
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=speedflux-backend
 
 [Install]
 WantedBy=multi-user.target
@@ -190,36 +206,34 @@ sudo systemctl start speedflux-backend
 ### 4. Deploy Frontend
 
 ```bash
+# Create web directory
+sudo mkdir -p /var/www/speedflux
+
 # Copy dist folder to web server
 scp -r dist/* user@server:/var/www/speedflux/
 
-# Configure nginx
+# Set permissions
+sudo chown -R www-data:www-data /var/www/speedflux
+sudo chmod -R 755 /var/www/speedflux
+```
+
+### 5. Configure Nginx
+
+```bash
+# Copy nginx configuration
+sudo cp nginx-speedflux.conf /etc/nginx/sites-available/speedflux
+
+# Or create manually
 sudo nano /etc/nginx/sites-available/speedflux
 ```
 
-Nginx config:
-
-```nginx
-server {
-    listen 80;
-    server_name speedflux.hashmatrix.dev;
-
-    root /var/www/speedflux;
-    index index.html;
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    location /ws/ {
-        proxy_pass http://localhost:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-    }
-}
-```
+Full nginx configuration is provided in `nginx-speedflux.conf` file. It includes:
+- HTTP to HTTPS redirect
+- SSL/TLS configuration
+- Frontend static file serving
+- Backend API proxy
+- WebSocket proxy for speed tests
+- Security headers
 
 Enable site:
 
@@ -227,6 +241,68 @@ Enable site:
 sudo ln -s /etc/nginx/sites-available/speedflux /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
+```
+
+### 6. Setup SSL with Certbot
+
+```bash
+# Install certbot if not already installed
+sudo apt update
+sudo apt install certbot python3-certbot-nginx
+
+# Obtain SSL certificate
+sudo certbot --nginx -d speedflux.hashmatrix.dev -d www.speedflux.hashmatrix.dev
+
+# Certbot will automatically:
+# - Obtain certificate from Let's Encrypt
+# - Update nginx configuration with SSL settings
+# - Set up automatic renewal
+
+# Test automatic renewal
+sudo certbot renew --dry-run
+```
+
+The certificate will auto-renew. Certbot creates a systemd timer for renewal.
+
+### 7. Setup GeoIP Databases (Optional but Recommended)
+
+```bash
+# On server, create GeoIP directory
+sudo mkdir -p /usr/share/GeoIP
+
+# Copy GeoIP databases from local machine
+scp backend/geoip_data/*.mmdb user@server:/tmp/
+sudo mv /tmp/*.mmdb /usr/share/GeoIP/
+sudo chmod 644 /usr/share/GeoIP/*.mmdb
+
+# Or download directly on server
+cd /tmp
+export MAXMIND_LICENSE_KEY="your_license_key"
+wget -O download-geoip.sh https://raw.githubusercontent.com/your-repo/nova-speed/main/backend/scripts/download-geoip.sh
+chmod +x download-geoip.sh
+./download-geoip.sh
+sudo mv geoip_data/*.mmdb /usr/share/GeoIP/
+```
+
+Update backend service to use GeoIP:
+
+```bash
+sudo systemctl edit speedflux-backend
+```
+
+Add:
+
+```ini
+[Service]
+Environment="GEOIP_CITY_PATH=/usr/share/GeoIP/GeoLite2-City.mmdb"
+Environment="GEOIP_ASN_PATH=/usr/share/GeoIP/GeoLite2-ASN.mmdb"
+```
+
+Reload service:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart speedflux-backend
 ```
 
 ## Troubleshooting
@@ -315,15 +391,37 @@ tail -f backend.log
 tail -f frontend.log
 ```
 
+## Production Deployment Checklist
+
+1. ✅ Build application: `./deploy.sh` (choose option 2)
+2. ✅ Copy backend binary to server: `/opt/speedflux/nova-speed-backend`
+3. ✅ Create systemd service: `/etc/systemd/system/speedflux-backend.service`
+4. ✅ Enable and start backend service
+5. ✅ Copy frontend build to: `/var/www/speedflux/`
+6. ✅ Configure nginx: `/etc/nginx/sites-available/speedflux`
+7. ✅ Setup SSL with certbot
+8. ✅ (Optional) Setup GeoIP databases
+9. ✅ Test all endpoints
+
 ## Updates
 
 To update the application:
 
 1. Pull latest changes: `git pull`
-2. Rebuild: `./deploy.sh`
-3. Restart services:
+2. Rebuild: `./deploy.sh` (choose option 2)
+3. Copy new files to server:
+   ```bash
+   scp bin/nova-speed-backend user@server:/opt/speedflux/
+   scp -r dist/* user@server:/var/www/speedflux/
+   ```
+4. Restart services:
    - Backend: `sudo systemctl restart speedflux-backend`
-   - Frontend: Reload web server
+   - Frontend: `sudo systemctl reload nginx` (or restart if needed)
+5. Verify:
+   ```bash
+   curl https://speedflux.hashmatrix.dev/health
+   curl https://speedflux.hashmatrix.dev/info
+   ```
 
 ## Security Notes
 
