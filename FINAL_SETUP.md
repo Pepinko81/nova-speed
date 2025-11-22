@@ -92,16 +92,23 @@ curl https://hashmatrix.dev/info
 curl -I https://hashmatrix.dev/
 ```
 
-### Стъпка 7: Обнови frontend (ако е необходимо)
+### Стъпка 7: Деплой на frontend
 
-Ако frontend-ът все още не е обновен:
+**ВАЖНО:** Това трябва да се направи, иначе сайтът няма да работи!
 
 ```bash
 # Rebuild frontend
+cd ~/nova-speed
 npm run build
+
+# Създай web директория (ако не съществува)
+sudo mkdir -p /var/www/speedflux
 
 # Копирай новите файлове
 sudo cp -r dist/* /var/www/speedflux/
+
+# Създай favicon.ico (от HashMatrix.png)
+sudo cp public/HashMatrix.png /var/www/speedflux/favicon.ico
 
 # Fix permissions
 sudo chown -R www-data:www-data /var/www/speedflux
@@ -109,6 +116,15 @@ sudo chmod -R 755 /var/www/speedflux
 
 # Reload nginx
 sudo systemctl reload nginx
+```
+
+**Проверка:**
+```bash
+# Провери дали файловете са на място
+ls -la /var/www/speedflux/
+
+# Тест
+curl -I https://hashmatrix.dev/
 ```
 
 ## ✅ Checklist
@@ -138,6 +154,20 @@ sudo certbot renew --dry-run
 ```
 
 ## 🐛 Troubleshooting
+
+### Nginx Errors (favicon.ico, missing files)
+
+Ако виждаш грешки в `/var/log/nginx/error.log`:
+
+```bash
+# Виж FIX_NGINX_ERRORS.md за пълно решение
+
+# Бързо решение:
+# 1. Уверети се че frontend е деплойнат (Стъпка 7)
+# 2. Създай favicon
+sudo cp ~/nova-speed/public/HashMatrix.png /var/www/speedflux/favicon.ico
+sudo chown www-data:www-data /var/www/speedflux/favicon.ico
+```
 
 ### SSL не работи
 
