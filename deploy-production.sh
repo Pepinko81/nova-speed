@@ -38,6 +38,24 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
+# Get the original user who ran sudo (for build file ownership)
+ORIGINAL_USER=${SUDO_USER:-$USER}
+ORIGINAL_HOME=$(eval echo ~$ORIGINAL_USER)
+
+# If we can't determine the original user, try to get it from who am i
+if [ "$ORIGINAL_USER" = "root" ] || [ -z "$ORIGINAL_USER" ]; then
+    ORIGINAL_USER=$(who am i | awk '{print $1}')
+    ORIGINAL_HOME=$(eval echo ~$ORIGINAL_USER 2>/dev/null || echo "$HOME")
+fi
+
+# Fallback: use current directory owner if still root
+if [ "$ORIGINAL_USER" = "root" ] || [ -z "$ORIGINAL_USER" ]; then
+    ORIGINAL_USER=$(stat -c '%U' . 2>/dev/null || echo "root")
+    ORIGINAL_HOME=$(eval echo ~$ORIGINAL_USER 2>/dev/null || echo "/root")
+fi
+
+echo -e "${BLUE}Building as user: $ORIGINAL_USER${NC}\n"
+
 # Function to check prerequisites
 check_prerequisites() {
     echo -e "${BLUE}Checking prerequisites...${NC}"
@@ -70,16 +88,22 @@ check_prerequisites() {
 build_backend() {
     echo -e "${BLUE}Building backend...${NC}"
     
-    # Create bin directory if it doesn't exist
+    # Create bin directory if it doesn't exist (with correct ownership)
     mkdir -p bin
+    chown "$ORIGINAL_USER:$ORIGINAL_USER" bin 2>/dev/null || true
     
     cd "$BACKEND_DIR"
     
     echo "Downloading Go dependencies..."
-    go mod download
+    # Run as original user to avoid permission issues
+    sudo -u "$ORIGINAL_USER" go mod download 2>/dev/null || go mod download
     
     echo "Building Go binary..."
-    go build -o "../bin/$BACKEND_BINARY" ./main.go
+    # Build as original user
+    sudo -u "$ORIGINAL_USER" go build -o "../bin/$BACKEND_BINARY" ./main.go 2>/dev/null || go build -o "../bin/$BACKEND_BINARY" ./main.go
+    
+    # Ensure correct ownership
+    chown "$ORIGINAL_USER:$ORIGINAL_USER" "../bin/$BACKEND_BINARY" 2>/dev/null || true
     
     if [ ! -f "../bin/$BACKEND_BINARY" ]; then
         echo -e "${RED}Error: Backend build failed${NC}"
@@ -98,11 +122,18 @@ build_frontend() {
     
     if [ ! -d "node_modules" ]; then
         echo "Installing npm dependencies..."
-        npm install
+        # Install as original user
+        sudo -u "$ORIGINAL_USER" npm install 2>/dev/null || npm install
+        # Fix ownership
+        chown -R "$ORIGINAL_USER:$ORIGINAL_USER" node_modules 2>/dev/null || true
     fi
     
     echo "Building frontend..."
-    npm run build
+    # Build as original user
+    sudo -u "$ORIGINAL_USER" npm run build 2>/dev/null || npm run build
+    
+    # Fix ownership of dist directory
+    chown -R "$ORIGINAL_USER:$ORIGINAL_USER" dist 2>/dev/null || true
     
     if [ ! -d "dist" ]; then
         echo -e "${RED}Error: Frontend build failed${NC}"
