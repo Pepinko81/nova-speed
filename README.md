@@ -93,7 +93,7 @@ Create a `.env` file in the root directory:
 
 ```env
 # WebSocket URL (optional - defaults to same host as frontend)
-VITE_WS_URL=wss://speedflux.hashmatrix.dev
+VITE_WS_URL=wss://hashmatrix.dev
 
 # Backend API port (optional, defaults to 3001)
 VITE_API_PORT=3001
@@ -105,7 +105,7 @@ The backend can be configured via environment variables:
 
 ```env
 PORT=3001
-ALLOWED_ORIGINS=https://speedflux.hashmatrix.dev,https://www.speedflux.hashmatrix.dev
+ALLOWED_ORIGINS=https://hashmatrix.dev,https://www.hashmatrix.dev
 MAX_CONNECTIONS=1000
 ENABLE_LOGGING=true
 ENABLE_METRICS=true
@@ -227,7 +227,7 @@ See [backend README](./backend/README.md) for detailed API documentation.
 ### Domain Configuration
 
 The application is configured for:
-- **Production Domain**: https://speedflux.hashmatrix.dev
+- **Production Domain**: https://hashmatrix.dev
 
 Update CORS settings in backend configuration to match your deployment domain.
 

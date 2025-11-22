@@ -19,7 +19,7 @@ DNS-01 challenge doesn't require port 80 access. Instead, it uses DNS TXT record
 ```bash
 sudo certbot certonly --manual \
     --preferred-challenges dns \
-    -d speedflux.hashmatrix.dev \
+    -d hashmatrix.dev \
     --email admin@hashmatrix.dev \
     --agree-tos \
     --manual-public-ip-logging-ok
@@ -38,7 +38,7 @@ When certbot asks, add this TXT record to your DNS:
 
 ```
 Type: TXT
-Name: _acme-challenge.speedflux.hashmatrix.dev
+Name: _acme-challenge.hashmatrix.dev
 Value: [the token certbot shows you]
 TTL: 300 (or auto)
 ```
@@ -54,7 +54,7 @@ After certificate is obtained:
 
 ```bash
 # Let certbot configure nginx automatically
-sudo certbot --nginx -d speedflux.hashmatrix.dev --redirect
+sudo certbot --nginx -d hashmatrix.dev --redirect
 ```
 
 Or manually edit nginx config (see `nginx-speedflux.conf`).
@@ -64,7 +64,7 @@ Or manually edit nginx config (see `nginx-speedflux.conf`).
 ```bash
 sudo nginx -t
 sudo systemctl reload nginx
-curl -I https://speedflux.hashmatrix.dev
+curl -I https://hashmatrix.dev
 ```
 
 ## Automated Script
@@ -105,7 +105,7 @@ sudo nano /etc/letsencrypt/cloudflare.ini
 sudo certbot certonly \
     --dns-cloudflare \
     --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini \
-    -d speedflux.hashmatrix.dev
+    -d hashmatrix.dev
 ```
 
 This allows automatic renewal without manual DNS updates.
@@ -123,20 +123,20 @@ This allows automatic renewal without manual DNS updates.
 
 1. Check TXT record:
    ```bash
-   dig _acme-challenge.speedflux.hashmatrix.dev TXT
+   dig _acme-challenge.hashmatrix.dev TXT
    ```
 
 2. Use different DNS servers:
    ```bash
-   dig @8.8.8.8 _acme-challenge.speedflux.hashmatrix.dev TXT
-   dig @1.1.1.1 _acme-challenge.speedflux.hashmatrix.dev TXT
+   dig @8.8.8.8 _acme-challenge.hashmatrix.dev TXT
+   dig @1.1.1.1 _acme-challenge.hashmatrix.dev TXT
    ```
 
 ### Certificate obtained but nginx errors?
 
 1. Check certificate files:
    ```bash
-   sudo ls -la /etc/letsencrypt/live/speedflux.hashmatrix.dev/
+   sudo ls -la /etc/letsencrypt/live/hashmatrix.dev/
    ```
 
 2. Check nginx error log:

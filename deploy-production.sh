@@ -28,7 +28,7 @@ INSTALL_DIR="/opt/speedflux"
 WEB_DIR="/var/www/speedflux"
 SERVICE_USER="www-data"
 SERVICE_GROUP="www-data"
-DOMAIN="speedflux.hashmatrix.dev"
+DOMAIN="hashmatrix.dev"
 
 echo -e "${GREEN}=== SpeedFlux Production Deployment Script ===${NC}\n"
 

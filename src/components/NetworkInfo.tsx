@@ -54,7 +54,7 @@ export const NetworkInfo = ({ className = "" }: NetworkInfoProps) => {
           // Auto-detect based on current page
           const protocol = window.location.protocol;
           const host = window.location.hostname;
-          const port = host.includes('speedflux.hashmatrix.dev') ? '' : ':3001';
+                const port = host.includes('hashmatrix.dev') ? '' : ':3001';
           apiUrl = `${protocol}//${host}${port}/info`;
         } else {
           apiUrl = 'http://localhost:3001/info';

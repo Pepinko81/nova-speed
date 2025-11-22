@@ -55,7 +55,7 @@ sudo systemctl stop nginx
 
 # Get certificate
 sudo certbot certonly --standalone \
-    -d speedflux.hashmatrix.dev \
+    -d hashmatrix.dev \
     --non-interactive \
     --agree-tos \
     --email admin@hashmatrix.dev
@@ -68,7 +68,7 @@ sudo systemctl start nginx
 
 ```bash
 # Let certbot configure nginx automatically
-sudo certbot --nginx -d speedflux.hashmatrix.dev --redirect
+sudo certbot --nginx -d hashmatrix.dev --redirect
 ```
 
 If certbot nginx plugin fails, manually edit nginx config:
@@ -84,7 +84,7 @@ Add HTTPS server block (see `nginx-speedflux.conf` for full example).
 ```bash
 sudo nginx -t
 sudo systemctl reload nginx
-curl -I https://speedflux.hashmatrix.dev
+curl -I https://hashmatrix.dev
 ```
 
 ## Why Standalone Mode?
@@ -108,7 +108,7 @@ Standalone mode is more reliable because:
 
 2. **Check DNS**:
    ```bash
-   dig speedflux.hashmatrix.dev
+   dig hashmatrix.dev
    # Should point to your server IP
    ```
 
@@ -122,7 +122,7 @@ Standalone mode is more reliable because:
 
 1. **Check certificate files**:
    ```bash
-   sudo ls -la /etc/letsencrypt/live/speedflux.hashmatrix.dev/
+   sudo ls -la /etc/letsencrypt/live/hashmatrix.dev/
    ```
 
 2. **Check nginx error log**:

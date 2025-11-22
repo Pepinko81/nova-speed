@@ -39,7 +39,7 @@ export class SpeedTestClient {
       // In browser, use same protocol as current page but for WebSocket
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const host = window.location.hostname;
-      const port = import.meta.env.VITE_WS_PORT || (host.includes('speedflux.hashmatrix.dev') ? '' : ':3001');
+      const port = import.meta.env.VITE_WS_PORT || (host.includes('hashmatrix.dev') ? '' : ':3001');
       this.wsBaseUrl = `${protocol}//${host}${port}`;
     } else {
       this.wsBaseUrl = 'ws://localhost:3001';

@@ -25,7 +25,7 @@ func Load() *Config {
 	allowedOrigins := os.Getenv("ALLOWED_ORIGINS")
 	if allowedOrigins == "" {
 		// Default to production domain and localhost for development
-		allowedOrigins = "https://speedflux.hashmatrix.dev,https://www.speedflux.hashmatrix.dev,http://localhost:3000,http://localhost:5173"
+		allowedOrigins = "https://hashmatrix.dev,https://www.hashmatrix.dev,http://localhost:3000,http://localhost:5173"
 	}
 
 	maxConnections := 1000

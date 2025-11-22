@@ -12,7 +12,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-DOMAIN="speedflux.hashmatrix.dev"
+DOMAIN="hashmatrix.dev"
 NGINX_CONFIG="/etc/nginx/sites-available/speedflux"
 
 echo -e "${BLUE}=== SpeedFlux SSL Setup (Standalone Mode) ===${NC}"

@@ -14,7 +14,7 @@ The application consists of:
 
 1. **Frontend** creates a `SpeedTestClient` instance
 2. **Client** automatically determines WebSocket URL:
-   - Production: `wss://speedflux.hashmatrix.dev/ws/*`
+   - Production: `wss://hashmatrix.dev/ws/*`
    - Development: `ws://localhost:8080/ws/*`
 3. **Backend** accepts WebSocket connections and runs tests
 
@@ -48,14 +48,14 @@ The application consists of:
 
 ```env
 # Optional: Override WebSocket URL
-VITE_WS_URL=wss://speedflux.hashmatrix.dev
+VITE_WS_URL=wss://hashmatrix.dev
 ```
 
 ### Backend Environment Variables
 
 ```env
 PORT=8080
-ALLOWED_ORIGINS=https://speedflux.hashmatrix.dev,https://www.speedflux.hashmatrix.dev,http://localhost:3000
+ALLOWED_ORIGINS=https://hashmatrix.dev,https://www.hashmatrix.dev,http://localhost:3000
 MAX_CONNECTIONS=1000
 ENABLE_LOGGING=true
 ENABLE_METRICS=true

@@ -124,7 +124,7 @@ services:
       - "3001:3001"
     environment:
       - PORT=3001
-      - ALLOWED_ORIGINS=http://localhost:3000,https://speedflux.hashmatrix.dev
+      - ALLOWED_ORIGINS=http://localhost:3000,https://hashmatrix.dev
     restart: unless-stopped
 
   frontend:
@@ -191,7 +191,7 @@ sudo ./deploy-production.sh
 Create `.env` file (for frontend build):
 
 ```env
-VITE_WS_URL=wss://speedflux.hashmatrix.dev
+VITE_WS_URL=wss://hashmatrix.dev
 ```
 
 #### 3. Deploy Backend
@@ -222,7 +222,7 @@ RestartSec=5
 
 # Environment variables
 Environment="PORT=3001"
-Environment="ALLOWED_ORIGINS=https://speedflux.hashmatrix.dev,https://www.speedflux.hashmatrix.dev"
+Environment="ALLOWED_ORIGINS=https://hashmatrix.dev,https://www.hashmatrix.dev"
 Environment="MAX_CONNECTIONS=1000"
 Environment="ENABLE_LOGGING=true"
 Environment="ENABLE_METRICS=true"
@@ -342,7 +342,7 @@ sudo systemctl stop nginx
 
 # Obtain certificate
 sudo certbot certonly --standalone \
-    -d speedflux.hashmatrix.dev \
+    -d hashmatrix.dev \
     --non-interactive \
     --agree-tos \
     --email admin@hashmatrix.dev \
@@ -357,7 +357,7 @@ sudo systemctl start nginx
 After certificate is obtained, use certbot to configure nginx:
 
 ```bash
-sudo certbot --nginx -d speedflux.hashmatrix.dev --redirect
+sudo certbot --nginx -d hashmatrix.dev --redirect
 ```
 
 If certbot nginx plugin fails, manually update nginx configuration:
@@ -374,7 +374,7 @@ Add HTTPS server block (see `nginx-speedflux.conf` for full example):
 server {
     listen 80;
     listen [::]:80;
-    server_name speedflux.hashmatrix.dev www.speedflux.hashmatrix.dev;
+    server_name hashmatrix.dev www.hashmatrix.dev;
     
     location /.well-known/acme-challenge/ {
         root /var/www/html;
@@ -387,10 +387,10 @@ server {
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name speedflux.hashmatrix.dev www.speedflux.hashmatrix.dev;
+    server_name hashmatrix.dev www.hashmatrix.dev;
 
-    ssl_certificate /etc/letsencrypt/live/speedflux.hashmatrix.dev/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/speedflux.hashmatrix.dev/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/hashmatrix.dev/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/hashmatrix.dev/privkey.pem;
     
     # ... rest of configuration (see nginx-speedflux.conf)
 }
@@ -418,7 +418,7 @@ This usually means nginx is not serving the ACME challenge correctly. Solutions:
 1. **Use standalone mode** (recommended):
    ```bash
    sudo systemctl stop nginx
-   sudo certbot certonly --standalone -d speedflux.hashmatrix.dev
+   sudo certbot certonly --standalone -d hashmatrix.dev
    sudo systemctl start nginx
    ```
 
@@ -442,15 +442,15 @@ This usually means nginx is not serving the ACME challenge correctly. Solutions:
 Ensure your domain DNS records point to this server:
 ```bash
 # Check DNS
-dig speedflux.hashmatrix.dev
-nslookup speedflux.hashmatrix.dev
+dig hashmatrix.dev
+nslookup hashmatrix.dev
 ```
 
 **Problem: Certificate obtained but nginx still shows errors**
 
 1. Verify certificate files exist:
    ```bash
-   sudo ls -la /etc/letsencrypt/live/speedflux.hashmatrix.dev/
+   sudo ls -la /etc/letsencrypt/live/hashmatrix.dev/
    ```
 
 2. Check nginx error log:
@@ -629,8 +629,8 @@ To update the application:
    - Frontend: `sudo systemctl reload nginx` (or restart if needed)
 5. Verify:
    ```bash
-   curl https://speedflux.hashmatrix.dev/health
-   curl https://speedflux.hashmatrix.dev/info
+   curl https://hashmatrix.dev/health
+   curl https://hashmatrix.dev/info
    ```
 
 ## Security Notes
