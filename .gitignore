@@ -28,3 +28,13 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# MaxMind license key (sensitive)
+geo-licenze-key.txt
+*license*.txt
+*license*.key
+
+# GeoIP databases (large files, download separately)
+backend/geoip_data/
+geoip_data/
+*.mmdb

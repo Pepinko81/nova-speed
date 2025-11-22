@@ -142,6 +142,12 @@ if ! download_database "ASN" "GeoLite2-ASN"; then
     exit 1
 fi
 
+# Download Country database
+if ! download_database "Country" "GeoLite2-Country"; then
+    log_error "Failed to download Country database"
+    exit 1
+fi
+
 echo ""
 log_success "All databases downloaded successfully!"
 echo ""
@@ -152,7 +158,11 @@ log_info "To use these databases, set environment variables:"
 echo "  export GEOIP_CITY_PATH=$GEOIP_DIR/GeoLite2-City.mmdb"
 echo "  export GEOIP_ASN_PATH=$GEOIP_DIR/GeoLite2-ASN.mmdb"
 echo ""
+log_info "Note: GeoLite2-Country is a lighter alternative to City database"
+echo "      Use City for detailed location, Country for basic country-level info"
+echo ""
 log_info "Or update docker-compose.yml to mount:"
 echo "  - ./geoip_data/GeoLite2-City.mmdb:/usr/share/GeoIP/GeoLite2-City.mmdb:ro"
 echo "  - ./geoip_data/GeoLite2-ASN.mmdb:/usr/share/GeoIP/GeoLite2-ASN.mmdb:ro"
+echo "  - ./geoip_data/GeoLite2-Country.mmdb:/usr/share/GeoIP/GeoLite2-Country.mmdb:ro"
 

@@ -19,8 +19,8 @@ services:
       - GEOIP_ASN_PATH=/usr/share/GeoIP/GeoLite2-ASN.mmdb
       - GEOIP_ISP_PATH=/usr/share/GeoIP/GeoLite2-ISP.mmdb
     volumes:
-      # Mount GeoIP databases (download from MaxMind and place in ./geoip directory)
-      - ./geoip:/usr/share/GeoIP:ro
+      # Mount GeoIP databases (download from MaxMind and place in ./geoip_data directory)
+      - ./geoip_data:/usr/share/GeoIP:ro
     restart: unless-stopped
     networks:
       - nova-speed-network

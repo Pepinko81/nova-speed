@@ -92,7 +92,23 @@ func main() {
 	if geoService != nil {
 		infoHandler := handlers.NewInfoHandler(appLogger, cfg, geoService)
 		app.Get("/info", infoHandler.HandleInfo)
+		
+		// Test endpoint to test geolocation with any IP
+		app.Get("/info/test/:ip", func(c *fiber.Ctx) error {
+			testIP := c.Params("ip")
+			info, err := geoService.GetIPInfo(testIP)
+			if err != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"ip":      testIP,
+					"error":   "Invalid IP or geolocation failed",
+					"message": err.Error(),
+				})
+			}
+			return c.JSON(info)
+		})
+		
 		appLogger.Info("IP info endpoint enabled at /info (with geolocation)")
+		appLogger.Info("Test endpoint enabled at /info/test/:ip (for testing any IP)")
 	} else {
 		// Fallback endpoint that returns just IP
 		app.Get("/info", func(c *fiber.Ctx) error {
