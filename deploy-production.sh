@@ -6,6 +6,11 @@
 
 set -e  # Exit on error
 
+# Add Go to PATH if installed in standard location (needed when running with sudo)
+if [ -d "/usr/local/go/bin" ]; then
+    export PATH="$PATH:/usr/local/go/bin"
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -64,6 +69,9 @@ check_prerequisites() {
 # Function to build backend
 build_backend() {
     echo -e "${BLUE}Building backend...${NC}"
+    
+    # Create bin directory if it doesn't exist
+    mkdir -p bin
     
     cd "$BACKEND_DIR"
     
