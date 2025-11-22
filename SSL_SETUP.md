@@ -1,8 +1,14 @@
 # SpeedFlux SSL Setup Guide
 
-## Quick Fix for 204 Error
+## Problem: 204 Error Even with Standalone Mode
 
-If you're getting `204 Invalid response` errors from certbot, use **standalone mode** instead of nginx mode.
+If you're getting `204 Invalid response` errors **even with standalone mode**, it means you have a **reverse proxy or load balancer** (like Cloudflare, AWS CloudFront, etc.) in front of your server that's blocking or modifying ACME challenge requests.
+
+**Solution: Use DNS-01 Challenge** (see `SSL_SETUP_DNS.md` for detailed instructions)
+
+## Quick Fix for 204 Error (If No Reverse Proxy)
+
+If you're getting `204 Invalid response` errors from certbot and you DON'T have a reverse proxy, use **standalone mode** instead of nginx mode.
 
 ## Method 1: Automated Script (Easiest)
 
@@ -88,6 +94,8 @@ Standalone mode is more reliable because:
 - It temporarily stops nginx and listens on port 80 directly
 - It avoids ACME challenge location block conflicts
 - It works even if you have multiple nginx sites
+
+**However**, if you have a reverse proxy/load balancer in front of your server, standalone mode won't work either. In that case, use **DNS-01 challenge** (see `SSL_SETUP_DNS.md`).
 
 ## Troubleshooting
 
