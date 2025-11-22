@@ -88,30 +88,36 @@ check_prerequisites() {
 build_backend() {
     echo -e "${BLUE}Building backend...${NC}"
     
-    # Create bin directory if it doesn't exist (with correct ownership)
-    mkdir -p bin
-    chown "$ORIGINAL_USER:$ORIGINAL_USER" bin 2>/dev/null || true
+    # Get absolute path to project root
+    PROJECT_ROOT=$(pwd)
+    BIN_DIR="$PROJECT_ROOT/bin"
+    BACKEND_DIR_ABS="$PROJECT_ROOT/$BACKEND_DIR"
     
-    cd "$BACKEND_DIR"
+    # Create bin directory if it doesn't exist (with correct ownership)
+    mkdir -p "$BIN_DIR"
+    chown "$ORIGINAL_USER:$ORIGINAL_USER" "$BIN_DIR" 2>/dev/null || true
+    
+    cd "$BACKEND_DIR_ABS"
     
     echo "Downloading Go dependencies..."
     # Run as original user to avoid permission issues
-    sudo -u "$ORIGINAL_USER" go mod download 2>/dev/null || go mod download
+    sudo -u "$ORIGINAL_USER" env HOME="$ORIGINAL_HOME" go mod download 2>/dev/null || go mod download
     
     echo "Building Go binary..."
-    # Build as original user
-    sudo -u "$ORIGINAL_USER" go build -o "../bin/$BACKEND_BINARY" ./main.go 2>/dev/null || go build -o "../bin/$BACKEND_BINARY" ./main.go
+    # Build as original user with absolute path
+    OUTPUT_PATH="$BIN_DIR/$BACKEND_BINARY"
+    sudo -u "$ORIGINAL_USER" env HOME="$ORIGINAL_HOME" go build -o "$OUTPUT_PATH" ./main.go 2>/dev/null || go build -o "$OUTPUT_PATH" ./main.go
     
     # Ensure correct ownership
-    chown "$ORIGINAL_USER:$ORIGINAL_USER" "../bin/$BACKEND_BINARY" 2>/dev/null || true
+    chown "$ORIGINAL_USER:$ORIGINAL_USER" "$OUTPUT_PATH" 2>/dev/null || true
     
-    if [ ! -f "../bin/$BACKEND_BINARY" ]; then
-        echo -e "${RED}Error: Backend build failed${NC}"
+    if [ ! -f "$OUTPUT_PATH" ]; then
+        echo -e "${RED}Error: Backend build failed - file not found at $OUTPUT_PATH${NC}"
         exit 1
     fi
     
     echo -e "${GREEN}✓ Backend built successfully${NC}\n"
-    cd ..
+    cd "$PROJECT_ROOT"
 }
 
 # Function to build frontend
@@ -148,11 +154,23 @@ build_frontend() {
 install_backend() {
     echo -e "${BLUE}Installing backend...${NC}"
     
+    # Get absolute paths
+    PROJECT_ROOT=$(pwd)
+    BINARY_SOURCE="$PROJECT_ROOT/bin/$BACKEND_BINARY"
+    
+    # Check if binary exists
+    if [ ! -f "$BINARY_SOURCE" ]; then
+        echo -e "${RED}Error: Binary not found at $BINARY_SOURCE${NC}"
+        echo -e "${YELLOW}Checking alternative locations...${NC}"
+        ls -la bin/ 2>/dev/null || echo "bin/ directory not found"
+        exit 1
+    fi
+    
     # Create installation directory
     mkdir -p "$INSTALL_DIR"
     
     # Copy binary
-    cp "bin/$BACKEND_BINARY" "$INSTALL_DIR/"
+    cp "$BINARY_SOURCE" "$INSTALL_DIR/"
     chown "$SERVICE_USER:$SERVICE_GROUP" "$INSTALL_DIR/$BACKEND_BINARY"
     chmod +x "$INSTALL_DIR/$BACKEND_BINARY"
     
