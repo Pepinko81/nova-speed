@@ -249,11 +249,28 @@ EOF
 install_frontend() {
     echo -e "${BLUE}Installing frontend...${NC}"
     
+    # Use project root from script context
+    DIST_DIR="$PROJECT_ROOT/dist"
+    
+    # Check if dist directory exists
+    if [ ! -d "$DIST_DIR" ]; then
+        echo -e "${RED}Error: dist directory not found at $DIST_DIR${NC}"
+        exit 1
+    fi
+    
+    # Check if dist directory is empty
+    if [ -z "$(ls -A "$DIST_DIR" 2>/dev/null)" ]; then
+        echo -e "${RED}Error: dist directory is empty${NC}"
+        exit 1
+    fi
+    
     # Create web directory
     mkdir -p "$WEB_DIR"
     
-    # Copy frontend files
-    cp -r dist/* "$WEB_DIR/"
+    # Copy frontend files (use find to handle hidden files and avoid glob issues)
+    find "$DIST_DIR" -mindepth 1 -maxdepth 1 -exec cp -r {} "$WEB_DIR/" \;
+    
+    # Fix ownership
     chown -R "$SERVICE_USER:$SERVICE_GROUP" "$WEB_DIR"
     chmod -R 755 "$WEB_DIR"
     
