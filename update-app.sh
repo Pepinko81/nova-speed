@@ -152,11 +152,21 @@ build_backend() {
     log_info "Building Go binary..."
     mkdir -p "$PROJECT_ROOT/bin"
     
+    # Ensure PATH includes Go binary location
+    if [ -d "/usr/local/go/bin" ]; then
+        export PATH="$PATH:/usr/local/go/bin"
+    fi
+    
     if [ "$RUN_AS_ROOT" = true ]; then
         # If running as root, find the original user
         ORIGINAL_USER="${SUDO_USER:-$USER}"
         if [ -n "$ORIGINAL_USER" ] && [ "$ORIGINAL_USER" != "root" ]; then
-            sudo -u "$ORIGINAL_USER" go build -o "$BACKEND_BINARY" ./main.go || {
+            # Get original user's PATH and add Go if needed
+            ORIGINAL_PATH=$(sudo -u "$ORIGINAL_USER" bash -c 'echo $PATH')
+            if [ -d "/usr/local/go/bin" ]; then
+                ORIGINAL_PATH="$ORIGINAL_PATH:/usr/local/go/bin"
+            fi
+            sudo -u "$ORIGINAL_USER" env PATH="$ORIGINAL_PATH" go build -o "$BACKEND_BINARY" ./main.go || {
                 log_error "Failed to build backend"
                 exit 1
             }
