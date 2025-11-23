@@ -420,9 +420,17 @@ main() {
     echo ""
     
     # Pull from GitHub
+    UPDATES_AVAILABLE=true
     if ! pull_from_github; then
-        log_info "No updates available. Exiting."
-        exit 0
+        log_info "No updates available from GitHub."
+        echo ""
+        read -p "Do you want to rebuild and reinstall anyway? [y/N]: " -r response
+        if [[ ! "$response" =~ ^[Yy]$ ]]; then
+            log_info "Exiting."
+            exit 0
+        fi
+        UPDATES_AVAILABLE=false
+        log_info "Proceeding with rebuild and reinstall..."
     fi
     echo ""
     
