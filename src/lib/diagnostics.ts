@@ -12,9 +12,10 @@ export const calculateConnectionQuality = (
   const recommendations: string[] = [];
   let stabilityScore = 100;
 
-  // Check packet loss
+  // Check packet loss (each 1% = -5 points, max -50 points)
   if (ping.packetLoss && ping.packetLoss > 0) {
-    stabilityScore -= ping.packetLoss * 5;
+    const packetLossPenalty = Math.min(ping.packetLoss * 5, 50);
+    stabilityScore -= packetLossPenalty;
     if (ping.packetLoss > 5) {
       recommendations.push('Висок packet loss - проверете кабелното свързване или Wi-Fi сигнала');
     } else if (ping.packetLoss > 1) {
@@ -22,9 +23,10 @@ export const calculateConnectionQuality = (
     }
   }
 
-  // Check jitter
+  // Check jitter (each 10ms above 20 = -2 points, max -20 points)
   if (ping.jitter > 20) {
-    stabilityScore -= (ping.jitter - 20) * 0.5;
+    const jitterPenalty = Math.min((ping.jitter - 20) / 10 * 2, 20);
+    stabilityScore -= jitterPenalty;
     if (ping.jitter > 50) {
       recommendations.push('Висок jitter - не е подходящо за gaming или video calls');
     } else {
@@ -32,29 +34,66 @@ export const calculateConnectionQuality = (
     }
   }
 
-  // Check latency
+  // Check latency (each 10ms above 100 = -1 point, max -20 points)
   if (ping.latency > 100) {
-    stabilityScore -= (ping.latency - 100) * 0.2;
+    const latencyPenalty = Math.min((ping.latency - 100) / 10, 20);
+    stabilityScore -= latencyPenalty;
     if (ping.latency > 200) {
       recommendations.push('Висока латентност - не е подходящо за gaming или real-time приложения');
     }
   }
 
-  // Check speed variance
-  if (download.speedVariance && download.speedVariance > 20) {
-    stabilityScore -= download.speedVariance * 0.3;
-    recommendations.push('Нестабилна download скорост - проверете Wi-Fi или кабелното свързване');
+  // Check speed variance - convert to coefficient of variation (CV) percentage
+  // CV = (stdDev / mean) * 100, where variance = stdDev^2
+  // We need to calculate CV from variance and mean speed
+  if (download.speedVariance && download.speedVariance > 0 && download.throughput > 0) {
+    // Calculate coefficient of variation: CV = sqrt(variance) / mean * 100
+    const stdDev = Math.sqrt(download.speedVariance);
+    const cv = (stdDev / download.throughput) * 100;
+    
+    // Penalize high CV (each 10% CV above 20% = -2 points, max -15 points)
+    if (cv > 20) {
+      const variancePenalty = Math.min((cv - 20) / 10 * 2, 15);
+      stabilityScore -= variancePenalty;
+      if (cv > 50) {
+        recommendations.push('Много нестабилна download скорост - проверете Wi-Fi или кабелното свързване');
+      } else {
+        recommendations.push('Нестабилна download скорост - проверете Wi-Fi или кабелното свързване');
+      }
+    }
   }
 
-  if (upload.speedVariance && upload.speedVariance > 20) {
-    stabilityScore -= upload.speedVariance * 0.3;
-    recommendations.push('Нестабилна upload скорост - може да има проблеми с рутера');
+  if (upload.speedVariance && upload.speedVariance > 0 && upload.throughput > 0) {
+    // Calculate coefficient of variation: CV = sqrt(variance) / mean * 100
+    const stdDev = Math.sqrt(upload.speedVariance);
+    const cv = (stdDev / upload.throughput) * 100;
+    
+    // Penalize high CV (each 10% CV above 20% = -2 points, max -15 points)
+    if (cv > 20) {
+      const variancePenalty = Math.min((cv - 20) / 10 * 2, 15);
+      stabilityScore -= variancePenalty;
+      if (cv > 50) {
+        recommendations.push('Много нестабилна upload скорост - може да има проблеми с рутера');
+      } else {
+        recommendations.push('Нестабилна upload скорост - може да има проблеми с рутера');
+      }
+    }
   }
 
-  // Check TTFB
+  // Check TTFB (each 100ms above 500 = -2 points, max -10 points)
   if (download.ttfb && download.ttfb > 500) {
-    stabilityScore -= 10;
-    recommendations.push('Високо време до първи байт - сървърът може да е далеч или натоварен');
+    const ttfbPenalty = Math.min((download.ttfb - 500) / 100 * 2, 10);
+    stabilityScore -= ttfbPenalty;
+    if (download.ttfb > 1000) {
+      recommendations.push('Много високо време до първи байт - сървърът може да е далеч или натоварен');
+    } else {
+      recommendations.push('Високо време до първи байт - сървърът може да е далеч или натоварен');
+    }
+  }
+  
+  // Bonus for excellent connection
+  if (ping.latency < 20 && ping.jitter < 10 && (!ping.packetLoss || ping.packetLoss < 0.5)) {
+    stabilityScore += 5; // Bonus for excellent connection
   }
 
   // Check if connection is suitable for different use cases
@@ -95,10 +134,10 @@ export const calculateConnectionQuality = (
   }
 
   // Ensure score is between 0 and 100
-  stabilityScore = Math.max(0, Math.min(100, stabilityScore));
+  stabilityScore = Math.max(0, Math.min(100, Math.round(stabilityScore)));
 
   return {
-    stabilityScore: Math.round(stabilityScore),
+    stabilityScore,
     isStable,
     recommendations: [...new Set(recommendations)], // Remove duplicates
   };
