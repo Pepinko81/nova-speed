@@ -56,16 +56,45 @@ check_prerequisites() {
     if [ "$EUID" -eq 0 ]; then
         log_warning "Running as root. Some commands may need to be run as regular user."
         RUN_AS_ROOT=true
+        ORIGINAL_USER="${SUDO_USER:-$USER}"
     else
         RUN_AS_ROOT=false
+        ORIGINAL_USER="$USER"
     fi
     
-    # Check Go
-    if ! command -v go &> /dev/null; then
-        log_error "Go is not installed"
+    # Check Go - try multiple locations
+    GO_FOUND=false
+    GO_PATH=""
+    
+    # Try standard locations
+    if [ -f "/usr/local/go/bin/go" ]; then
+        GO_PATH="/usr/local/go/bin/go"
+        GO_FOUND=true
+    elif command -v go &> /dev/null; then
+        GO_PATH="go"
+        GO_FOUND=true
+    elif [ -n "$ORIGINAL_USER" ] && [ "$ORIGINAL_USER" != "root" ]; then
+        # Try as original user
+        USER_GO=$(sudo -u "$ORIGINAL_USER" bash -c 'command -v go 2>/dev/null || echo ""')
+        if [ -n "$USER_GO" ]; then
+            GO_PATH="$USER_GO"
+            GO_FOUND=true
+        fi
+    fi
+    
+    if [ "$GO_FOUND" = false ]; then
+        log_error "Go is not installed or not in PATH"
+        log_info "Tried: /usr/local/go/bin/go, PATH, and user's PATH"
         exit 1
     fi
-    log_success "Go found: $(go version | awk '{print $3}')"
+    
+    # Get Go version
+    if [ "$RUN_AS_ROOT" = true ] && [ -n "$ORIGINAL_USER" ] && [ "$ORIGINAL_USER" != "root" ]; then
+        GO_VERSION=$(sudo -u "$ORIGINAL_USER" "$GO_PATH" version 2>/dev/null | awk '{print $3}' || echo "unknown")
+    else
+        GO_VERSION=$("$GO_PATH" version 2>/dev/null | awk '{print $3}' || echo "unknown")
+    fi
+    log_success "Go found: $GO_VERSION"
     
     # Check npm
     if ! command -v npm &> /dev/null; then
@@ -99,29 +128,90 @@ pull_from_github() {
     cd "$PROJECT_ROOT"
     
     # Check if there are uncommitted changes
-    if ! git diff-index --quiet HEAD --; then
-        log_warning "You have uncommitted changes. Stashing them..."
-        git stash push -m "Auto-stash before update $(date +%Y-%m-%d_%H-%M-%S)"
+    HAS_UNCOMMITTED=false
+    if ! git diff-index --quiet HEAD -- 2>/dev/null; then
+        HAS_UNCOMMITTED=true
+        log_warning "You have uncommitted changes."
+        log_info "Options:"
+        log_info "  1. Stash changes and continue (default)"
+        log_info "  2. Commit changes first (manual)"
+        log_info "  3. Discard changes (dangerous)"
+        echo ""
+        read -p "How to handle uncommitted changes? [1-Stash/2-Commit/3-Discard] (default: 1): " -r response
+        response=${response:-1}
+        
+        case "$response" in
+            1)
+                log_info "Stashing uncommitted changes..."
+                git stash push -m "Auto-stash before update $(date +%Y-%m-%d_%H-%M-%S)" || {
+                    log_error "Failed to stash changes"
+                    exit 1
+                }
+                ;;
+            2)
+                log_info "Please commit your changes first, then run the script again."
+                exit 0
+                ;;
+            3)
+                log_warning "Discarding uncommitted changes..."
+                git reset --hard HEAD || {
+                    log_error "Failed to discard changes"
+                    exit 1
+                }
+                ;;
+            *)
+                log_info "Stashing uncommitted changes (default)..."
+                git stash push -m "Auto-stash before update $(date +%Y-%m-%d_%H-%M-%S)" || {
+                    log_error "Failed to stash changes"
+                    exit 1
+                }
+                ;;
+        esac
     fi
     
     # Fetch latest changes
+    log_info "Fetching from GitHub..."
     git fetch origin "$GIT_BRANCH" || {
         log_error "Failed to fetch from GitHub"
+        if [ "$HAS_UNCOMMITTED" = true ]; then
+            log_info "Restoring stashed changes..."
+            git stash pop 2>/dev/null || true
+        fi
         exit 1
     }
     
     # Check if there are updates
     LOCAL=$(git rev-parse @)
-    REMOTE=$(git rev-parse @{u})
-    BASE=$(git merge-base @ @{u})
+    REMOTE=$(git rev-parse @{u} 2>/dev/null || git rev-parse "origin/$GIT_BRANCH")
+    BASE=$(git merge-base @ "$REMOTE" 2>/dev/null || echo "")
     
-    if [ "$LOCAL" = "$REMOTE" ]; then
+    if [ -z "$BASE" ]; then
+        log_warning "Could not determine common ancestor. Pulling anyway..."
+        git pull origin "$GIT_BRANCH" || {
+            log_error "Failed to pull from GitHub"
+            if [ "$HAS_UNCOMMITTED" = true ]; then
+                log_info "Restoring stashed changes..."
+                git stash pop 2>/dev/null || true
+            fi
+            exit 1
+        }
+        log_success "Successfully pulled latest changes"
+        return 0  # Updates available
+    elif [ "$LOCAL" = "$REMOTE" ]; then
         log_success "Already up to date with origin/$GIT_BRANCH"
+        if [ "$HAS_UNCOMMITTED" = true ]; then
+            log_info "Restoring stashed changes..."
+            git stash pop 2>/dev/null || true
+        fi
         return 1  # No updates
     elif [ "$LOCAL" = "$BASE" ]; then
         log_info "New updates available. Pulling..."
         git pull origin "$GIT_BRANCH" || {
             log_error "Failed to pull from GitHub"
+            if [ "$HAS_UNCOMMITTED" = true ]; then
+                log_info "Restoring stashed changes..."
+                git stash pop 2>/dev/null || true
+            fi
             exit 1
         }
         log_success "Successfully pulled latest changes"
@@ -130,8 +220,13 @@ pull_from_github() {
         log_warning "Local branch has diverged from remote. Attempting to merge..."
         git pull origin "$GIT_BRANCH" --no-rebase || {
             log_error "Failed to merge changes. Please resolve conflicts manually."
+            if [ "$HAS_UNCOMMITTED" = true ]; then
+                log_info "Restoring stashed changes..."
+                git stash pop 2>/dev/null || true
+            fi
             exit 1
         }
+        log_success "Successfully merged changes"
         return 0  # Updates available
     fi
 }
@@ -157,27 +252,23 @@ build_backend() {
         export PATH="$PATH:/usr/local/go/bin"
     fi
     
-    if [ "$RUN_AS_ROOT" = true ]; then
-        # If running as root, find the original user
-        ORIGINAL_USER="${SUDO_USER:-$USER}"
-        if [ -n "$ORIGINAL_USER" ] && [ "$ORIGINAL_USER" != "root" ]; then
-            # Get original user's PATH and add Go if needed
-            ORIGINAL_PATH=$(sudo -u "$ORIGINAL_USER" bash -c 'echo $PATH')
-            if [ -d "/usr/local/go/bin" ]; then
-                ORIGINAL_PATH="$ORIGINAL_PATH:/usr/local/go/bin"
-            fi
-            sudo -u "$ORIGINAL_USER" env PATH="$ORIGINAL_PATH" go build -o "$BACKEND_BINARY" ./main.go || {
-                log_error "Failed to build backend"
-                exit 1
-            }
-        else
-            go build -o "$BACKEND_BINARY" ./main.go || {
-                log_error "Failed to build backend"
-                exit 1
-            }
+    # Use the Go path we found during prerequisites check
+    if [ -z "$GO_PATH" ]; then
+        GO_PATH="go"
+    fi
+    
+    if [ "$RUN_AS_ROOT" = true ] && [ -n "$ORIGINAL_USER" ] && [ "$ORIGINAL_USER" != "root" ]; then
+        # Get original user's PATH and add Go if needed
+        ORIGINAL_PATH=$(sudo -u "$ORIGINAL_USER" bash -c 'echo $PATH')
+        if [ -d "/usr/local/go/bin" ]; then
+            ORIGINAL_PATH="$ORIGINAL_PATH:/usr/local/go/bin"
         fi
+        sudo -u "$ORIGINAL_USER" env PATH="$ORIGINAL_PATH" "$GO_PATH" build -o "$BACKEND_BINARY" ./main.go || {
+            log_error "Failed to build backend"
+            exit 1
+        }
     else
-        go build -o "$BACKEND_BINARY" ./main.go || {
+        "$GO_PATH" build -o "$BACKEND_BINARY" ./main.go || {
             log_error "Failed to build backend"
             exit 1
         }
