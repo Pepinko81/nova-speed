@@ -29,9 +29,12 @@ func (s *PingService) RunTest(c *websocket.Conn) *models.PingResult {
 
 	var latencies []float64
 	startTime := time.Now()
+	packetsSent := 0
+	packetsReceived := 0
 
 	// Send ping packets and measure latency
 	for i := 0; i < numPackets; i++ {
+		packetsSent++
 		// Record send time using monotonic clock
 		sendTime := time.Now()
 		pingTimestamp := models.GetMonotonicTime()
@@ -78,6 +81,7 @@ func (s *PingService) RunTest(c *websocket.Conn) *models.PingResult {
 		}
 
 		latencies = append(latencies, latencyMs)
+		packetsReceived++
 
 		// Small delay between packets
 		time.Sleep(50 * time.Millisecond)
@@ -86,22 +90,31 @@ func (s *PingService) RunTest(c *websocket.Conn) *models.PingResult {
 	// Calculate results
 	avgLatency := utils.CalculateAverageLatency(latencies)
 	jitter := utils.CalculateJitter(latencies)
+	packetLoss := utils.CalculatePacketLoss(packetsSent, packetsReceived)
+	minLatency, maxLatency := utils.CalculateMinMaxLatency(latencies)
 
 	duration := time.Since(startTime).Seconds()
 
 	s.logger.Info("Ping test completed",
 		zap.Float64("avgLatency", avgLatency),
 		zap.Float64("jitter", jitter),
-		zap.Int("packets", len(latencies)),
+		zap.Float64("packetLoss", packetLoss),
+		zap.Float64("minLatency", minLatency),
+		zap.Float64("maxLatency", maxLatency),
+		zap.Int("packetsSent", packetsSent),
+		zap.Int("packetsReceived", packetsReceived),
 		zap.Float64("duration", duration),
 	)
 
 	return &models.PingResult{
-		Type:      "result",
-		Latency:   avgLatency,
-		Jitter:    jitter,
-		Packets:   len(latencies),
-		Timestamp: time.Now().Unix(),
+		Type:       "result",
+		Latency:    avgLatency,
+		Jitter:     jitter,
+		Packets:    packetsReceived,
+		PacketLoss: packetLoss,
+		MinLatency: minLatency,
+		MaxLatency: maxLatency,
+		Timestamp:  time.Now().Unix(),
 	}
 }
 

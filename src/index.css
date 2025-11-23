@@ -45,6 +45,25 @@ All colors MUST be HSL.
     --gauge-bg: 220 20% 15%;
     --gauge-trail: 220 18% 25%;
   }
+
+  /* High contrast mode */
+  .high-contrast {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 100%;
+    --primary: 200 100% 50%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 0 0% 20%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 80%;
+    --accent: 200 100% 60%;
+    --accent-foreground: 0 0% 0%;
+    --border: 0 0% 40%;
+    --input: 0 0% 20%;
+    --ring: 200 100% 50%;
+  }
 }
 
 @layer base {

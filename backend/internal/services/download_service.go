@@ -40,9 +40,16 @@ func (s *DownloadService) RunTest(c *websocket.Conn, initialChunkSize int) *mode
 
 	startTime := time.Now()
 	endTime := startTime.Add(testDuration)
+	firstByteTime := time.Time{}
+	ttfbMeasured := false
+	minTestDuration := 3 * time.Second // Minimum test duration
+	maxTestDuration := testDuration     // Maximum test duration
 
 	var totalBytes int64
 	var currentThroughput float64
+	var previousThroughput float64
+	var speedSamples []float64
+	var recentSamples []float64 // Last 5 samples for stability check
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
@@ -55,7 +62,7 @@ func (s *DownloadService) RunTest(c *websocket.Conn, initialChunkSize int) *mode
 	defer close(stopChan)
 
 	// Adaptive streaming: adjust chunk size and streams based on performance
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(1 * time.Second) // Check every second for faster adaptation
 	defer ticker.Stop()
 
 	go func() {
@@ -63,10 +70,33 @@ func (s *DownloadService) RunTest(c *websocket.Conn, initialChunkSize int) *mode
 			select {
 			case <-ticker.C:
 				mu.Lock()
-				// Adapt chunk size based on current throughput
-				newChunkSize := utils.AdaptiveChunkSize(currentThroughput, minChunkSize, maxChunkSize)
+				elapsed := time.Since(startTime)
+				
+				// Only check stability after minimum duration
+				if elapsed >= minTestDuration && len(recentSamples) >= 5 {
+					// Check if speed has stabilized
+					if utils.IsSpeedStable(recentSamples, 5, 0.1) { // 10% max variation
+					s.logger.Info("Speed stabilized, stopping test early",
+						zap.Float64("throughput", currentThroughput),
+						zap.Duration("duration", elapsed),
+					)
+					stopChan <- struct{}{}
+						mu.Unlock()
+						return
+					}
+				}
+				
+				// Adapt chunk size progressively based on speed change
+				speedChange := 0.0
+				if previousThroughput > 0 {
+					speedChange = (currentThroughput - previousThroughput) / previousThroughput
+				}
+				
+				// Use progressive chunk size adjustment
+				newChunkSize := utils.ProgressiveChunkSize(minChunkSize, chunkSize, maxChunkSize, speedChange)
 				newNumStreams := utils.CalculateOptimalParallelStreams(currentThroughput)
 				
+				// Only adapt if significant change
 				if newChunkSize != chunkSize || newNumStreams != numStreams {
 					s.logger.Info("Adapting download parameters",
 						zap.Int("oldChunkSize", chunkSize),
@@ -74,13 +104,21 @@ func (s *DownloadService) RunTest(c *websocket.Conn, initialChunkSize int) *mode
 						zap.Int("oldStreams", numStreams),
 						zap.Int("newStreams", newNumStreams),
 						zap.Float64("throughput", currentThroughput),
+						zap.Float64("speedChange", speedChange),
 					)
 					chunkSize = newChunkSize
 					numStreams = newNumStreams
 				}
+				
+				previousThroughput = currentThroughput
 				mu.Unlock()
 			case <-stopChan:
 				return
+			default:
+				if time.Now().After(endTime) {
+					stopChan <- struct{}{}
+					return
+				}
 			}
 		}
 	}()
@@ -124,11 +162,30 @@ func (s *DownloadService) RunTest(c *websocket.Conn, initialChunkSize int) *mode
 				// Update total bytes atomically
 				atomic.AddInt64(&totalBytes, int64(len(payload)))
 
-				// Calculate current throughput periodically
+				// Measure TTFB on first chunk
+				if !ttfbMeasured && len(payload) > 0 {
+					mu.Lock()
+					if !ttfbMeasured {
+						firstByteTime = time.Now()
+						ttfbMeasured = true
+					}
+					mu.Unlock()
+				}
+
+				// Calculate current throughput periodically and collect samples
 				elapsed := time.Since(startTime).Seconds()
 				if elapsed > 0 {
 					mu.Lock()
 					currentThroughput = utils.CalculateThroughput(atomic.LoadInt64(&totalBytes), elapsed)
+					// Collect speed samples every 500ms for variance calculation
+					if len(speedSamples) == 0 || time.Since(startTime).Milliseconds()%500 < 100 {
+						speedSamples = append(speedSamples, currentThroughput)
+						// Keep last 5 samples for stability check
+						recentSamples = append(recentSamples, currentThroughput)
+						if len(recentSamples) > 5 {
+							recentSamples = recentSamples[len(recentSamples)-5:]
+						}
+					}
 					mu.Unlock()
 				}
 			}
@@ -141,9 +198,15 @@ func (s *DownloadService) RunTest(c *websocket.Conn, initialChunkSize int) *mode
 		go streamFunc(i)
 	}
 
-	// Wait for test duration
-	<-time.After(testDuration)
-	stopChan <- struct{}{}
+	// Wait for test duration or early stop
+	select {
+	case <-time.After(maxTestDuration):
+		// Maximum duration reached
+		stopChan <- struct{}{}
+	case <-stopChan:
+		// Early stop due to stability
+		break
+	}
 
 	// Wait for all streams to finish
 	wg.Wait()
@@ -166,19 +229,33 @@ func (s *DownloadService) RunTest(c *websocket.Conn, initialChunkSize int) *mode
 		finalThroughput = 10000
 	}
 
+	// Calculate TTFB
+	var ttfb float64
+	if !firstByteTime.IsZero() {
+		ttfb = float64(firstByteTime.Sub(startTime).Nanoseconds()) / 1_000_000.0 // Convert to milliseconds
+	}
+
+	// Calculate speed variance
+	speedVariance := utils.CalculateVariance(speedSamples)
+
 	s.logger.Info("Download test completed",
 		zap.Float64("throughput", finalThroughput),
 		zap.Int64("bytes", atomic.LoadInt64(&totalBytes)),
 		zap.Float64("duration", duration),
+		zap.Float64("ttfb", ttfb),
+		zap.Float64("speedVariance", speedVariance),
 		zap.Int("streams", numStreams),
 	)
 
 	return &models.DownloadResult{
-		Type:       "result",
-		Throughput: finalThroughput,
-		Bytes:      atomic.LoadInt64(&totalBytes),
-		Duration:   duration,
-		Timestamp:  time.Now().Unix(),
+		Type:          "result",
+		Throughput:    finalThroughput,
+		Bytes:         atomic.LoadInt64(&totalBytes),
+		Duration:      duration,
+		TTFB:          ttfb,
+		SpeedVariance: speedVariance,
+		SpeedSamples:  speedSamples,
+		Timestamp:     time.Now().Unix(),
 	}
 }
 

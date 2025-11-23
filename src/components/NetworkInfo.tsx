@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Globe, MapPin, Wifi, Clock, AlertCircle, Loader2 } from "lucide-react";
+import { getOperatorName, getOperatorEmoji } from "@/lib/diagnostics";
 
 interface IPInfo {
   ip: string;
@@ -92,16 +93,16 @@ export const NetworkInfo = ({ className = "" }: NetworkInfoProps) => {
     fetchIPInfo();
   }, []);
 
-  if (loading) {
-    return (
-      <div className={`glass rounded-xl sm:rounded-2xl p-4 sm:p-6 ${className}`}>
-        <div className="flex items-center justify-center gap-3 py-8">
-          <Loader2 className="w-5 h-5 animate-spin text-primary" />
-          <span className="text-muted-foreground">Loading network information...</span>
-        </div>
-      </div>
-    );
-  }
+        if (loading) {
+          return (
+            <div className={`glass rounded-xl sm:rounded-2xl p-4 sm:p-6 ${className}`}>
+              <div className="flex items-center justify-center gap-3 py-8">
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                <span className="text-muted-foreground">Зареждане на мрежова информация...</span>
+              </div>
+            </div>
+          );
+        }
 
   // Show error only if we have no info at all
   if (error && !info) {
@@ -110,7 +111,7 @@ export const NetworkInfo = ({ className = "" }: NetworkInfoProps) => {
         <div className="flex items-center gap-3 text-destructive">
           <AlertCircle className="w-5 h-5" />
           <div>
-            <div className="font-semibold">Unable to load network information</div>
+            <div className="font-semibold">Неуспешно зареждане на мрежова информация</div>
             <div className="text-sm text-muted-foreground mt-1">
               {error}
             </div>
@@ -127,11 +128,11 @@ export const NetworkInfo = ({ className = "" }: NetworkInfoProps) => {
   return (
     <div className={`glass rounded-xl sm:rounded-2xl p-4 sm:p-6 ${className}`}>
       <div className="space-y-4">
-        {/* Header */}
-        <div className="flex items-center gap-2 mb-4">
-          <Globe className="w-5 h-5 text-primary" />
-          <h3 className="text-lg font-semibold">Network Information</h3>
-        </div>
+              {/* Header */}
+              <div className="flex items-center gap-2 mb-4">
+                <Globe className="w-5 h-5 text-primary" />
+                <h3 className="text-lg font-semibold">Мрежова Информация</h3>
+              </div>
 
         {/* Warning message if geolocation not available */}
         {info.error && (
@@ -151,7 +152,7 @@ export const NetworkInfo = ({ className = "" }: NetworkInfoProps) => {
             <Wifi className="w-4 h-4 text-muted-foreground" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-xs text-muted-foreground mb-1">Public IP Address</div>
+                  <div className="text-xs text-muted-foreground mb-1">Публичен IP Адрес</div>
             <div className="text-sm font-mono font-medium break-all">{info.ip}</div>
           </div>
         </div>
@@ -163,7 +164,7 @@ export const NetworkInfo = ({ className = "" }: NetworkInfoProps) => {
               <MapPin className="w-4 h-4 text-muted-foreground" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-xs text-muted-foreground mb-1">Location</div>
+                    <div className="text-xs text-muted-foreground mb-1">Местоположение</div>
               <div className="flex items-center gap-2">
                 {info.countryCode && (
                   <span className="text-lg" title={info.country}>
@@ -180,7 +181,7 @@ export const NetworkInfo = ({ className = "" }: NetworkInfoProps) => {
                   ) : info.city ? (
                     info.city
                   ) : (
-                    "Unknown"
+                    "Неизвестно"
                   )}
                 </div>
               </div>
@@ -198,9 +199,15 @@ export const NetworkInfo = ({ className = "" }: NetworkInfoProps) => {
               <Wifi className="w-4 h-4 text-muted-foreground" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-xs text-muted-foreground mb-1">ISP / Network</div>
-              <div className="text-sm font-medium">
-                {info.isp || "Unknown"}
+              <div className="text-xs text-muted-foreground mb-1">Оператор / Мрежа</div>
+              <div className="text-sm font-medium flex items-center gap-2">
+                {info.isp && (
+                  <>
+                    <span className="text-lg">{getOperatorEmoji(getOperatorName(info.isp))}</span>
+                    <span>{getOperatorName(info.isp)}</span>
+                  </>
+                )}
+                {!info.isp && <span>Неизвестен</span>}
                 {info.asn && (
                   <span className="text-muted-foreground ml-2">(AS{info.asn})</span>
                 )}
@@ -216,7 +223,7 @@ export const NetworkInfo = ({ className = "" }: NetworkInfoProps) => {
               <Clock className="w-4 h-4 text-muted-foreground" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-xs text-muted-foreground mb-1">Timezone</div>
+                    <div className="text-xs text-muted-foreground mb-1">Часова Зона</div>
               <div className="text-sm font-medium">{info.timezone}</div>
             </div>
           </div>
@@ -229,7 +236,7 @@ export const NetworkInfo = ({ className = "" }: NetworkInfoProps) => {
               <MapPin className="w-4 h-4 text-muted-foreground" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-xs text-muted-foreground mb-1">Coordinates</div>
+              <div className="text-xs text-muted-foreground mb-1">Координати</div>
               <div className="text-xs font-mono">
                 {info.latitude.toFixed(4)}, {info.longitude.toFixed(4)}
               </div>

@@ -6,24 +6,53 @@ export interface PingResult {
   latency: number;
   jitter: number;
   packets: number;
+  packetLoss?: number;
+  minLatency?: number;
+  maxLatency?: number;
 }
 
 export interface DownloadResult {
   throughput: number;
   bytes: number;
   duration: number;
+  ttfb?: number;
+  speedVariance?: number;
+  speedSamples?: number[];
 }
 
 export interface UploadResult {
   throughput: number;
   bytes: number;
   duration: number;
+  speedVariance?: number;
+  speedSamples?: number[];
+}
+
+export interface ConnectionQuality {
+  stabilityScore: number;
+  isStable: boolean;
+  recommendations: string[];
+}
+
+export interface TestHistoryEntry {
+  id: string;
+  timestamp: number;
+  ping: number;
+  jitter: number;
+  packetLoss?: number;
+  download: number;
+  upload: number;
+  ttfb?: number;
+  speedVariance?: number;
+  operator?: string;
+  location?: string;
 }
 
 export interface TestProgress {
   test: 'ping' | 'download' | 'upload';
   value: number;
   unit: 'ms' | 'Mbps';
+  timestamp?: number; // For real-time graphing
 }
 
 type ProgressCallback = (progress: TestProgress) => void;
@@ -82,6 +111,9 @@ export class SpeedTestClient {
               latency: message.latency,
               jitter: message.jitter,
               packets: message.packets,
+              packetLoss: message.packetLoss,
+              minLatency: message.minLatency,
+              maxLatency: message.maxLatency,
             };
             resolve(result);
             ws.close();
@@ -161,6 +193,9 @@ export class SpeedTestClient {
                 throughput: result.throughput,
                 bytes: result.bytes,
                 duration: result.duration,
+                ttfb: result.ttfb,
+                speedVariance: result.speedVariance,
+                speedSamples: result.speedSamples,
               };
               resolve(downloadResult);
               ws.close();
@@ -304,6 +339,8 @@ export class SpeedTestClient {
               throughput: message.throughput,
               bytes: message.bytes,
               duration: message.duration,
+              speedVariance: message.speedVariance,
+              speedSamples: message.speedSamples,
             };
             resolve(uploadResult);
             ws.close();
